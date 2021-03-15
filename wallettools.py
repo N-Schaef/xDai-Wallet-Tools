@@ -140,6 +140,7 @@ def wallet_balance(args):
 #  | |____| |____ _| |_
 #   \_____|______|_____|
 #
+
 parser = argparse.ArgumentParser(
     description='A collection of tools to handle xDai chain wallets.')
 walletcommands = parser.add_subparsers(title='Wallet',
@@ -166,4 +167,8 @@ balance_parser.add_argument('--exchange', action='append',
 balance_parser.set_defaults(func=wallet_balance)
 
 args = parser.parse_args()
-args.func(args)
+
+try:
+    args.func(args)
+except AttributeError:
+    parser.print_help()
