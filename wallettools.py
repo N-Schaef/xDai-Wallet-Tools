@@ -4,8 +4,7 @@ import argparse
 import json  # standard JSON parser
 import requests  # HTTP library
 blockscout_url = "https://blockscout.com/xdai/mainnet/api"
-xdai_address = "0xe91d153e0b41518a2ce8dd3d7944fa863463a97d"
-usdc_address = "0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83"
+
 
 #  __  __ _
 # |  \/  (_)
