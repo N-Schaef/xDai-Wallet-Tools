@@ -35,7 +35,6 @@ def get_liquidities(args):
   """.format(wallet=format_wallet_address(args.wallet))
     req_json = json.loads(req_data)
     overall_liquidity = 0.0
-    print(args.exchange)
     for exchange in args.exchange:
         exchange_liquidity = 0.0
         liquidity_response = requests.post(exchange, json=req_json)
