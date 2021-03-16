@@ -1,10 +1,144 @@
 #!/usr/bin/env python3
 
-import argparse
+import click
 import json  # standard JSON parser
 import requests  # HTTP library
-blockscout_url = "https://blockscout.com/xdai/mainnet/api"
+import sqlite3
+from prettytable import PrettyTable
 
+blockscout_url = "https://blockscout.com/xdai/mainnet/api"
+db_file = "wallettools.sqlite"
+
+#    _____  ____
+#   |  __ \|  _ \
+#   | |  | | |_) |
+#   | |  | |  _ <
+#   | |__| | |_) |
+#   |_____/|____/
+
+
+def init_db(file):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS state
+        (id INTEGER PRIMARY KEY, wallet_address VARCHAR(255), timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS token
+        (id INTEGER PRIMARY KEY, address VARCHAR(255) UNIQUE, name VARCHAR(255), symbol VARCHAR(20))''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS wallet
+        (state_id INTEGER REFERENCES state(id), token_id INTEGER REFERENCES token(id), balance VARCHAR(255), decimals INTEGER, price REAL)''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS liqudity
+        (state_id INTEGER REFERENCES state(id), token0_id INTEGER REFERENCES token(id), token1_id INTEGER REFERENCES token(id), balance REAL, price REAL)''')
+
+    con.commit()
+    con.close()
+
+
+def insert_token(file, address, name, symbol):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    cur.execute('INSERT INTO token (address,name,symbol) values(?,?,?) ON CONFLICT(address) DO UPDATE SET name=excluded.name, symbol=excluded.symbol;',
+                (address, name, symbol,))
+    con.commit()
+    rowId = None
+    for row in cur.execute('SELECT id FROM token where address = ?',
+                           (address, )):
+        rowId = row[0]
+    con.close()
+    return rowId
+
+
+def fetch_db(file, wallet, exchanges):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    cur.execute('INSERT INTO state(wallet_address) VALUES (?)', (wallet,))
+    rowid = cur.lastrowid
+    con.commit()
+    con.close()
+    insert_tokens(file, rowid, wallet, exchanges[0])
+    for exchange in exchanges:
+        insert_liquidity(file, rowid, wallet, exchange)
+
+
+def insert_tokens(file, state, wallet, exchange):
+    rows = fetch_tokens(wallet, state, exchange)
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    cur.executemany(
+        'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (?,?,?,?,?)', rows)
+    con.commit()
+    con.close()
+
+
+def insert_liquidity(file, state, wallet, exchange):
+    rows = fetch_liquidities(wallet, state, exchange)
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    cur.executemany(
+        'INSERT INTO liqudity(state_id,token0_id,token1_id, balance, price) VALUES (?,?,?,?,?)', rows)
+    con.commit()
+    con.close()
+
+
+def get_last_state_id(file, wallet):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    for row in cur.execute('SELECT id FROM state WHERE wallet_address = ? ORDER BY id DESC LIMIT 1;', (wallet,)):
+        return row[0]
+    con.close()
+    return None
+
+
+def print_token_state(file, state):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    table = PrettyTable()
+    table.field_names = ["Name", "Symbol", "Balance", "Price", "Value"]
+    total_val = 0.0
+    for row in cur.execute("SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ?;", (state,)):
+        balance = int(row[2])/pow(10, row[3])
+        total = balance*row[4]
+        total_val += total
+        table.add_row([row[0], row[1], balance,
+                       row[4], "{:.2f}$".format(total)])
+    print(table)
+    total = "{:.2f}$".format(total_val)
+    padding_bw = (3 * (len(table.field_names)-1))
+    tb_width = sum(table._widths)
+    print('| ' + 'Total' + (' ' * (tb_width - len('Total' + total)) +
+                            ' ' * padding_bw) + total + ' |')
+    print('+-' + '-' * tb_width + '-' * padding_bw + '-+')
+    return total_val
+
+
+def print_liquidity_state(file, state):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    table = PrettyTable()
+    table.field_names = ["Pair", "Balance", "Value"]
+    total_val = 0.0
+    for row in cur.execute("SELECT t0.symbol,  t1.symbol, l.balance, l.price FROM (liqudity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;", (state,)):
+        total_val += row[3]
+        table.add_row(["{}-{}".format(row[0], row[1]),
+                       row[2], "{:.2f}$".format(row[3])])
+    print(table)
+    total = "{:.2f}$".format(total_val)
+    padding_bw = (3 * (len(table.field_names)-1))
+    tb_width = sum(table._widths)
+    print('| ' + 'Total' + (' ' * (tb_width - len('Total' + total)) +
+                            ' ' * padding_bw) + total + ' |')
+    print('+-' + '-' * tb_width + '-' * padding_bw + '-+')
+    return total_val
+
+
+def print_wallet_state(file, state):
+    total = print_token_state(file, state)
+    total += print_liquidity_state(file, state)
+    print("=== Total wallet value: {:.2f}$ ===".format(total))
 
 #  __  __ _
 # |  \/  (_)
@@ -26,41 +160,37 @@ def format_wallet_address(wallet):
 #  \____/|_| |_|_|___/ \_/\_/ \__,_| .__/  |_|  |_|_|___/\___|
 #                                  | |
 #                                  |_|
-def get_liquidities(args):
-    req_data = """                   
+def fetch_liquidities(wallet, state, exchange):
+    req_data = """
 {{"query":
-"{{user(id: \\"{wallet}\\"){{\\nliquidityPositions{{id,liquidityTokenBalance,pair{{totalSupply,reserveUSD,token0{{name,symbol}}token1{{name,symbol}}}}}}}}}}", "variables": null
+"{{user(id: \\"{wallet}\\"){{\\nliquidityPositions{{id,liquidityTokenBalance,pair{{totalSupply,reserveUSD,token0{{id,name,symbol}}token1{{id,name,symbol}}}}}}}}}}", "variables": null
 }}
-  """.format(wallet=format_wallet_address(args.wallet))
+  """.format(wallet=format_wallet_address(wallet))
     req_json = json.loads(req_data)
-    overall_liquidity = 0.0
-    for exchange in args.exchange:
-        exchange_liquidity = 0.0
-        liquidity_response = requests.post(exchange, json=req_json)
-        print("--- Liquidity pools in exchange {} ---".format(exchange))
-        if(liquidity_response.ok):
-            data = json.loads(liquidity_response.content)
-            user = data["data"]["user"]
-            if user is None:
-                continue
-            liquidity_data = user["liquidityPositions"]
-            for liquidity in liquidity_data:
-                pair = liquidity["pair"]
-                pool_amount = (float(
-                    pair["reserveUSD"])/float(pair["totalSupply"]))*float(liquidity["liquidityTokenBalance"])
-                print(
-                    "{}-{}: {:.2f}$".format(pair["token0"]["symbol"], pair["token1"]["symbol"], pool_amount))
-                exchange_liquidity += pool_amount
-            print("---")
-            print("Exchange Sum: {:.2f} $".format(exchange_liquidity))
-            overall_liquidity += exchange_liquidity
-
-        else:
-            print("Could not connect to {}".format(exchange))
-
-        print("-------")
-        print("Overall Sum: {:.2f} $".format(overall_liquidity))
-        return overall_liquidity
+    liquidity_response = requests.post(exchange, json=req_json)
+    if(liquidity_response.ok):
+        data = json.loads(liquidity_response.content)
+        user = data["data"]["user"]
+        if user is None:
+            return None
+        liquidity_data = user["liquidityPositions"]
+        liquidity_rows = []
+        for liquidity in liquidity_data:
+            pair = liquidity["pair"]
+            token0 = pair["token0"]
+            token0_id = insert_token(
+                db_file, token0["id"], token0["name"], token0["symbol"])
+            token1 = pair["token1"]
+            token1_id = insert_token(
+                db_file, token1["id"], token1["name"], token1["symbol"])
+            pool_amount = (float(
+                pair["reserveUSD"])/float(pair["totalSupply"]))*float(liquidity["liquidityTokenBalance"])
+            row = (state, token0_id, token1_id, float(
+                liquidity["liquidityTokenBalance"]), pool_amount,)
+            liquidity_rows.append(row)
+        return liquidity_rows
+    else:
+        print("Could not connect to {}".format(exchange))
 
 
 #  _______    _
@@ -70,7 +200,8 @@ def get_liquidities(args):
 #    | | (_) |   <  __/ | | \__ \
 #    |_|\___/|_|\_\___|_| |_|___/
 
-def get_token_value(exchange_url, token_address, amount):
+
+def fetch_token_price(exchange_url, token_address):
     req_data = """
                     
 {{"query":
@@ -84,51 +215,42 @@ def get_token_value(exchange_url, token_address, amount):
         data = json.loads(pair_response.content)
         token_data = data["data"]["tokenDayDatas"]
         if len(token_data) > 0:
-            return amount * float(token_data[0]["priceUSD"])
+            return float(token_data[0]["priceUSD"])
     else:
         print("Could not get data from {}".format(exchange_url))
-        print(pair_response)
     return None
 
 
-def tokens(args):
-    print("--- Tokens in wallet {} ---".format(args.wallet))
+def fetch_tokens(wallet, state_id, exchange):
     endpoint = "?module=account&action=tokenlist&address={}".format(
-        format_wallet_address(args.wallet))
+        format_wallet_address(wallet))
     url = "{}{}".format(blockscout_url, endpoint)
     token_response = requests.get(url)
     if(token_response.ok):
         data = json.loads(token_response.content)
         tokens = data["result"]
-        overall_value = 0.0
+        wallet_rows = []
         for token in tokens:
-            bal = int(token["balance"])
-            if bal == 0.0:
+            if int(token["balance"]) == 0:
                 continue
-            balance = bal/pow(10.0, int(token["decimals"]))
-            token_value = get_token_value(
-                args.exchange, token["contractAddress"], balance)
+            token_id = insert_token(
+                db_file, token["contractAddress"], token["name"], token["symbol"])
+            token_value = fetch_token_price(exchange, token["contractAddress"])
             if token_value is None:
                 token_value = 0.0
-            print("{}({}): {} = {:.2f}$".format(
-                token["name"], token["symbol"], balance,  token_value))
             if token_value is not None:
-                overall_value += token_value
-        print("-------")
-        print("Sum: {:.2f} $".format(overall_value))
-        return overall_value
+                row = (state_id, token_id, token["balance"], int(
+                    token["decimals"]), token_value,)
+                wallet_rows.append(row)
+        return wallet_rows
     else:
         print("Could not connect to {}".format(url))
-        return 0.0
+        return None
 
 
-def wallet_balance(args):
-    overall_balance = 0.0
-    overall_balance += get_liquidities(args)
-    args.exchange = args.exchange[0]
-    overall_balance += tokens(args)
-    print("===Total Balance===")
-    print("{:.2f} $".format(overall_balance))
+def tokens(args):
+    init_db(db_file)
+    fetch_db(db_file, args.wallet, args.exchange)
 
 
 #
@@ -140,34 +262,40 @@ def wallet_balance(args):
 #   \_____|______|_____|
 #
 
-parser = argparse.ArgumentParser(
-    description='A collection of tools to handle xDai chain wallets.')
-walletcommands = parser.add_subparsers(title='Wallet',
-                                       description='Commands using your wallet')
-tokens_parser = walletcommands.add_parser('tokens')
-tokens_parser.add_argument('--wallet', required=True,
-                           help='Your wallet address')
-tokens_parser.add_argument('--exchange',
-                           help='Uniswap v2 compatible exchange URL', default="https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2")
-tokens_parser.set_defaults(func=tokens)
+default_db = "wallettools.sqlite"
 
-pools_parser = walletcommands.add_parser('pools')
-pools_parser.add_argument('--wallet', required=True,
-                          help='Your wallet address')
-pools_parser.add_argument('--exchange', action='append',
-                          help='Uniswap v2 compatible exchange URL', default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
-pools_parser.set_defaults(func=get_liquidities)
 
-balance_parser = walletcommands.add_parser('balance')
-balance_parser.add_argument('--wallet', required=True,
-                            help='Your wallet address')
-balance_parser.add_argument('--exchange', action='append',
-                            help='Uniswap v2 compatible exchange URL', default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
-balance_parser.set_defaults(func=wallet_balance)
+@click.group()
+def cli():
+    pass
 
-args = parser.parse_args()
 
-try:
-    args.func(args)
-except AttributeError:
-    parser.print_help()
+@cli.command()
+@click.option('--wallet', help='Your xDai wallet address', required=True)
+@click.option('--db', help='The SQLite DB file', default=default_db)
+@click.option('--exchange', help='Uniswap V2 compatible exchange APIs to query', multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
+def update(wallet, db, exchange):
+    """Fetches the current state of your wallet."""
+    init_db(db)
+    fetch_db(db, format_wallet_address(wallet), exchange)
+
+
+@cli.command()
+@click.option('--wallet', help='Your xDai wallet address', required=True)
+@click.option('--db', help='The SQLite DB file', default=default_db)
+@click.option('--exchange', help='Uniswap V2 compatible exchange APIs to query', multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
+@click.option('--fetch', is_flag=True, help='Also fetch new data')
+def show(wallet, db, exchange, fetch):
+    """Shows the last state of your wallet"""
+    init_db(db)
+    if fetch:
+        fetch_db(db, format_wallet_address(wallet), exchange)
+    state = get_last_state_id(db, format_wallet_address(wallet))
+    if state is None:
+        print("Could not find any state for wallet address {}".format(wallet))
+        return
+    print_wallet_state(db, state)
+
+
+if __name__ == '__main__':
+    cli()
