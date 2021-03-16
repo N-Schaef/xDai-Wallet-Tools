@@ -17,7 +17,7 @@ pip3 install --pre gql[all]
 To get an overview over your wallet balance and liquidities in exchanges use
 
 ```bash
-./wallettools.py show --wallet WALLET-ADDRESS [--exchange EXCHANGE-API-URL] [--db SQLite-FILE ] [--fetch]
+./wallettools.py show --wallet WALLET-ADDRESS [--exchange EXCHANGE-API-URL] [--db SQLite-FILE ] [--fetch/--no-fetch]
 ```
 
 The exchange API can be any GraphQL endpoint of a Uniswap-V2 fork. (e.g.: Honeyswap, Bao-Swap, ...).
@@ -26,6 +26,3 @@ If no exchange is given, Honeyswap is used per default.
 The script will then get all tokens from [Blockscout](https://blockscout.com/xdai/mainnet) and calculate their USD value using the given exchange.
 This requires that the token is traded on the given exchange.
 By using the `--exchange` argument multiple times you can specify additional exchanges to check.
-
-`show` requires that previously data has been fetched into the given database.
-By supplying `--fetch` the wallet balance will be updated in the database.

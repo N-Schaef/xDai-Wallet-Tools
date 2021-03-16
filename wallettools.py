@@ -284,7 +284,7 @@ def update(wallet, db, exchange):
 @click.option('--wallet', help='Your xDai wallet address', required=True)
 @click.option('--db', help='The SQLite DB file', default=default_db)
 @click.option('--exchange', help='Uniswap V2 compatible exchange APIs to query', multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
-@click.option('--fetch', is_flag=True, help='Fetch new data before displaying')
+@click.option('--fetch/--no-fetch', default=True, help='Fetch new data before displaying')
 def show(wallet, db, exchange, fetch):
     """Shows the last state of your wallet"""
     init_db(db)
