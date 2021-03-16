@@ -5,6 +5,7 @@ import json  # standard JSON parser
 import requests  # HTTP library
 import sqlite3
 from prettytable import PrettyTable
+from datetime import datetime
 
 blockscout_url = "https://blockscout.com/xdai/mainnet/api"
 db_file = "wallettools.sqlite"
@@ -87,8 +88,8 @@ def insert_liquidity(file, state, wallet, exchange):
 def get_last_state_id(file, wallet):
     con = sqlite3.connect(file)
     cur = con.cursor()
-    for row in cur.execute('SELECT id FROM state WHERE wallet_address = ? ORDER BY id DESC LIMIT 1;', (wallet,)):
-        return row[0]
+    for row in cur.execute('SELECT id, timestamp FROM state WHERE wallet_address = ? ORDER BY id DESC LIMIT 1;', (wallet,)):
+        return (row[0],row[1])
     con.close()
     return None
 
@@ -127,7 +128,8 @@ def print_liquidity_state(file, state):
     return total_val
 
 
-def print_wallet_state(file, state):
+def print_wallet_state(file, state, time):
+    print("State {} from {}".format(state,time))
     total = print_token_state(file, state)
     total += print_liquidity_state(file, state)
     print("=== Total wallet value: {:.2f}$ ===".format(total))
@@ -292,7 +294,7 @@ def show(wallet, db, exchange, fetch):
     if state is None:
         print("Could not find any state for wallet address {}".format(wallet))
         return
-    print_wallet_state(db, state)
+    print_wallet_state(db, state[0], "{}".format(state[1]))
 
 
 if __name__ == '__main__':
