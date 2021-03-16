@@ -4,7 +4,7 @@ import click
 import json  # standard JSON parser
 import requests  # HTTP library
 import sqlite3
-from prettytable import PrettyTable
+from prettytable import PrettyTable,from_db_cursor
 from datetime import datetime
 
 blockscout_url = "https://blockscout.com/xdai/mainnet/api"
@@ -135,6 +135,17 @@ def print_wallet_state(file, state, time, wallet):
     total = print_token_state(file, state)
     total += print_liquidity_state(file, state)
     print("=== Total wallet value: {:.2f}$ ===".format(total))
+
+def list_states(file, wallet):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    if wallet is None:
+        res = cur.execute("SELECT * FROM state")
+    else:
+        res = cur.execute("SELECT * FROM state WHERE wallet_address = ?",(wallet,))
+    table = from_db_cursor(res)
+    print(table)
+    con.close()
 
 #  __  __ _
 # |  \/  (_)
@@ -290,14 +301,24 @@ def update(wallet, db, exchange):
 def show(wallet, db, exchange, fetch):
     """Shows the last state of your wallet"""
     init_db(db)
+    wallet = format_wallet_address(wallet)
     if fetch:
-        fetch_db(db, format_wallet_address(wallet), exchange)
-    state = get_last_state_id(db, format_wallet_address(wallet))
+        fetch_db(db, wallet, exchange)
+    state = get_last_state_id(db, wallet)
     if state is None:
         print("Could not find any state for wallet address {}".format(wallet))
         return
     print_wallet_state(db, state[0], "{}".format(state[1]),wallet)
 
+@cli.command()
+@click.option('--wallet', help='Your xDai wallet address', required=False)
+@click.option('--db', help='The SQLite DB file', default=default_db)
+def states(wallet, db):
+    """Shows all states in the database"""
+    if wallet is not None:
+        wallet = format_wallet_address(wallet)
+    init_db(db)
+    list_states(db,wallet)
 
 if __name__ == '__main__':
     cli()
