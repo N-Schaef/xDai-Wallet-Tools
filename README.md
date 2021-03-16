@@ -2,12 +2,11 @@ This python script is a tool I use to keep an overview over my finances on the x
 
 # Installation
 
-This script requires click, prettytables, and gql.
+This script requires click and prettytables.
 These requirements can be installed using:
 
 ```bash
 pip3 install click prettytables
-pip3 install --pre gql[all]
 ```
 
 # Usage / Features
@@ -26,3 +25,5 @@ If no exchange is given, Honeyswap is used per default.
 The script will then get all tokens from [Blockscout](https://blockscout.com/xdai/mainnet) and calculate their USD value using the given exchange.
 This requires that the token is traded on the given exchange.
 By using the `--exchange` argument multiple times you can specify additional exchanges to check.
+
+
