@@ -93,6 +93,14 @@ def get_last_state_id(file, wallet):
     con.close()
     return None
 
+def get_state_id(file, state):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    for row in cur.execute('SELECT id, wallet_address, timestamp FROM state WHERE id = ? ORDER BY id DESC LIMIT 1;', (state,)):
+        return (row[0],row[1],row[2])
+    con.close()
+    return None
+
 
 def print_token_state(file, state):
     con = sqlite3.connect(file)
@@ -282,11 +290,14 @@ default_db = "wallettools.sqlite"
 def cli():
     pass
 
+db_file_helptext="The SQLite DB file. Default: 'wallettools.sqlite'"
+wallet_helptext="Your xDai wallet address"
+exchange_helptext='Uniswap V2 compatible exchange APIs to query. Default: Honeyswap API'
 
 @cli.command()
-@click.option('--wallet', help='Your xDai wallet address', required=True)
-@click.option('--db', help='The SQLite DB file', default=default_db)
-@click.option('--exchange', help='Uniswap V2 compatible exchange APIs to query', multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
+@click.option('--wallet', help=wallet_helptext, required=True)
+@click.option('--db', help=db_file_helptext, default=default_db)
+@click.option('--exchange', help=exchange_helptext, multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
 def update(wallet, db, exchange):
     """Fetches the current state of your wallet."""
     init_db(db)
@@ -294,9 +305,9 @@ def update(wallet, db, exchange):
 
 
 @cli.command()
-@click.option('--wallet', help='Your xDai wallet address', required=True)
-@click.option('--db', help='The SQLite DB file', default=default_db)
-@click.option('--exchange', help='Uniswap V2 compatible exchange APIs to query', multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
+@click.option('--wallet', help=wallet_helptext, required=True)
+@click.option('--db', help=db_file_helptext, default=default_db)
+@click.option('--exchange', help=exchange_helptext, multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
 @click.option('--fetch/--no-fetch', default=True, help='Fetch new data before displaying')
 def show(wallet, db, exchange, fetch):
     """Shows the last state of your wallet"""
@@ -311,14 +322,26 @@ def show(wallet, db, exchange, fetch):
     print_wallet_state(db, state[0], "{}".format(state[1]),wallet)
 
 @cli.command()
-@click.option('--wallet', help='Your xDai wallet address', required=False)
-@click.option('--db', help='The SQLite DB file', default=default_db)
+@click.option('--wallet', help=wallet_helptext, required=False)
+@click.option('--db', help=db_file_helptext, default=default_db)
 def states(wallet, db):
     """Shows all states in the database"""
     if wallet is not None:
         wallet = format_wallet_address(wallet)
     init_db(db)
     list_states(db,wallet)
+
+@cli.command()
+@click.option('--state', help='The state to view', required=True,type=int)
+@click.option('--db', help=db_file_helptext, default=default_db)
+def state(state, db):
+    """Shows the wallet balance in a given historical state"""
+    init_db(db)
+    state = get_state_id(db, state)
+    if state is None:
+        print("Could not find any state with id {}".format(state))
+        return
+    print_wallet_state(db, state[0], "{}".format(state[2]),state[1])
 
 if __name__ == '__main__':
     cli()
