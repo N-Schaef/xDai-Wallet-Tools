@@ -106,6 +106,7 @@ def print_token_state(file, state):
         total_val += total
         table.add_row([row[0], row[1], balance,
                        row[4], "{:.2f}$".format(total)])
+    print("==== Token Balance ====")
     print(table)
     total = "{:.2f}$".format(total_val)
     print_table_summary(table,"Total",total)
@@ -122,14 +123,15 @@ def print_liquidity_state(file, state):
         total_val += row[3]
         table.add_row(["{}-{}".format(row[0], row[1]),
                        row[2], "{:.2f}$".format(row[3])])
+    print("==== Liquidity Pool Balance ====")
     print(table)
     total = "{:.2f}$".format(total_val)
     print_table_summary(table,"Total",total)
     return total_val
 
 
-def print_wallet_state(file, state, time):
-    print("State {} from {}".format(state,time))
+def print_wallet_state(file, state, time, wallet):
+    print("State {} from {} for wallet address {}".format(state,time,wallet))
     total = print_token_state(file, state)
     total += print_liquidity_state(file, state)
     print("=== Total wallet value: {:.2f}$ ===".format(total))
@@ -294,7 +296,7 @@ def show(wallet, db, exchange, fetch):
     if state is None:
         print("Could not find any state for wallet address {}".format(wallet))
         return
-    print_wallet_state(db, state[0], "{}".format(state[1]))
+    print_wallet_state(db, state[0], "{}".format(state[1]),wallet)
 
 
 if __name__ == '__main__':
