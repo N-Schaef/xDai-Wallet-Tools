@@ -107,11 +107,7 @@ def print_token_state(file, state):
                        row[4], "{:.2f}$".format(total)])
     print(table)
     total = "{:.2f}$".format(total_val)
-    padding_bw = (3 * (len(table.field_names)-1))
-    tb_width = sum(table._widths)
-    print('| ' + 'Total' + (' ' * (tb_width - len('Total' + total)) +
-                            ' ' * padding_bw) + total + ' |')
-    print('+-' + '-' * tb_width + '-' * padding_bw + '-+')
+    print_table_summary(table,"Total",total)
     return total_val
 
 
@@ -127,11 +123,7 @@ def print_liquidity_state(file, state):
                        row[2], "{:.2f}$".format(row[3])])
     print(table)
     total = "{:.2f}$".format(total_val)
-    padding_bw = (3 * (len(table.field_names)-1))
-    tb_width = sum(table._widths)
-    print('| ' + 'Total' + (' ' * (tb_width - len('Total' + total)) +
-                            ' ' * padding_bw) + total + ' |')
-    print('+-' + '-' * tb_width + '-' * padding_bw + '-+')
+    print_table_summary(table,"Total",total)
     return total_val
 
 
@@ -151,6 +143,12 @@ def print_wallet_state(file, state):
 def format_wallet_address(wallet):
     return wallet.lower()
 
+def print_table_summary(table, summary_title, summary_value):
+    padding_bw = (3 * (len(table.field_names)-1))
+    tb_width = sum(table._widths)
+    print('| ' + summary_title + (' ' * (tb_width - len(summary_title + summary_value)) +
+                            ' ' * padding_bw) + summary_value + ' |')
+    print('+-' + '-' * tb_width + '-' * padding_bw + '-+')
 
 #  _    _       _                           __  __ _
 # | |  | |     (_)                         |  \/  (_)
