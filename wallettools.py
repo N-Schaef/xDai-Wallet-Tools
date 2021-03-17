@@ -77,6 +77,8 @@ def insert_tokens(file, state, wallet, exchange):
 
 def insert_liquidity(file, state, wallet, exchange):
     rows = fetch_liquidities(wallet, state, exchange)
+    if rows is None:
+        return
     con = sqlite3.connect(file)
     cur = con.cursor()
     cur.executemany(
