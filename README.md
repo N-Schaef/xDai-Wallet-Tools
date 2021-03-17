@@ -6,7 +6,7 @@ This script requires click and prettytables.
 These requirements can be installed using:
 
 ```bash
-pip3 install click prettytables
+pip3 install -r requirements.txt
 ```
 
 # Usage / Features
