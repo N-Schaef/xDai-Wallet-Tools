@@ -253,6 +253,8 @@ def fetch_tokens(wallet, state_id, exchange):
         data = json.loads(token_response.content)
         tokens = data["result"]
         wallet_rows = []
+        if tokens is None:
+            tokens = []
         for token in tokens:
             if int(token["balance"]) == 0:
                 continue
