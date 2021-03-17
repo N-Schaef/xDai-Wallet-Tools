@@ -2,7 +2,6 @@ This python script is a tool I use to keep an overview over my finances on the x
 
 # Installation
 
-This script requires click and prettytables.
 These requirements can be installed using:
 
 ```bash
