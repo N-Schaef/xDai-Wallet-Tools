@@ -21,7 +21,8 @@ db_file = "wallettools.sqlite"
 def init_db(file):
     con = sqlite3.connect(file)
     cur = con.cursor()
-
+    cur.execute('''
+        PRAGMA foreign_keys = ON;''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS state
         (id INTEGER PRIMARY KEY, wallet_address VARCHAR(255), timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
@@ -30,10 +31,19 @@ def init_db(file):
         (id INTEGER PRIMARY KEY, address VARCHAR(255) UNIQUE, name VARCHAR(255), symbol VARCHAR(20))''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS wallet
-        (state_id INTEGER REFERENCES state(id), token_id INTEGER REFERENCES token(id), balance VARCHAR(255), decimals INTEGER, price REAL)''')
+        (state_id INTEGER, token_id INTEGER, balance VARCHAR(255), decimals INTEGER, price REAL,
+        FOREIGN KEY(state_id) REFERENCES state(id) ON DELETE CASCADE,
+        FOREIGN KEY(token_id) REFERENCES token(id) ON DELETE CASCADE
+        )
+        ''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS liqudity
-        (state_id INTEGER REFERENCES state(id), token0_id INTEGER REFERENCES token(id), token1_id INTEGER REFERENCES token(id), balance REAL, price REAL)''')
+        (state_id INTEGER REFERENCES state(id), token0_id INTEGER REFERENCES token(id), token1_id INTEGER REFERENCES token(id), balance REAL, price REAL,
+        FOREIGN KEY(state_id) REFERENCES state(id) ON DELETE CASCADE,
+        FOREIGN KEY(token0_id) REFERENCES token(id) ON DELETE CASCADE,
+        FOREIGN KEY(token1_id) REFERENCES token(id) ON DELETE CASCADE
+        )
+        ''')
 
     con.commit()
     con.close()
