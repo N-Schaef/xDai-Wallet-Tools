@@ -27,7 +27,10 @@ def init_db(file):
         (id INTEGER PRIMARY KEY, wallet_address VARCHAR(255), timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS token
-        (id INTEGER PRIMARY KEY, address VARCHAR(255) UNIQUE, name VARCHAR(255), symbol VARCHAR(20))''')
+        (id INTEGER PRIMARY KEY, address VARCHAR(255) UNIQUE, name VARCHAR(255), symbol VARCHAR(20));''')
+    cur.execute('''
+        INSERT OR IGNORE INTO token (id, address, name, symbol) VALUES(1,'0x0000000000000000000000000000000000000000', 'xDAI', 'xDAI')
+        ''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS wallet
         (state_id INTEGER, token_id INTEGER, balance VARCHAR(255), decimals INTEGER, price REAL,
@@ -75,9 +78,12 @@ def fetch_db(file, wallet, exchanges):
 
 
 def insert_tokens(file, state, wallet, exchange):
+    coin = fetch_coin(wallet,state)
     rows = fetch_tokens(wallet, state, exchange)
     con = sqlite3.connect(file)
     cur = con.cursor()
+    cur.execute(
+        'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (?,1,?,18,1.0)', (state,coin))
     cur.executemany(
         'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (?,?,?,?,?)', rows)
     con.commit()
@@ -276,6 +282,17 @@ def fetch_token_price(exchange_url, token_address):
         print("Could not get data from {}".format(exchange_url))
     return None
 
+def fetch_coin(wallet, state_id):
+    endpoint = "?module=account&action=balance&address={}".format(wallet)
+    url = "{}{}".format(blockscout_url, endpoint)
+    coin_response = requests.get(url)
+    if(coin_response.ok):
+        data = json.loads(coin_response.content)
+        coin = data["result"]
+        return coin
+    else:
+        print("Could not connect to {}".format(url))
+        return None
 
 def fetch_tokens(wallet, state_id, exchange):
     endpoint = "?module=account&action=tokenlist&address={}".format(
