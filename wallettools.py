@@ -4,7 +4,7 @@ import click
 import json  # standard JSON parser
 import requests  # HTTP library
 import sqlite3
-from prettytable import PrettyTable,from_db_cursor
+from prettytable import PrettyTable, from_db_cursor
 from datetime import datetime
 
 blockscout_url = "https://blockscout.com/xdai/mainnet/api"
@@ -100,15 +100,16 @@ def get_last_state_id(file, wallet):
     con = sqlite3.connect(file)
     cur = con.cursor()
     for row in cur.execute('SELECT id, timestamp FROM state WHERE wallet_address = ? ORDER BY id DESC LIMIT 1;', (wallet,)):
-        return (row[0],row[1])
+        return (row[0], row[1])
     con.close()
     return None
+
 
 def get_state_id(file, state):
     con = sqlite3.connect(file)
     cur = con.cursor()
     for row in cur.execute('SELECT id, wallet_address, timestamp FROM state WHERE id = ? ORDER BY id DESC LIMIT 1;', (state,)):
-        return (row[0],row[1],row[2])
+        return (row[0], row[1], row[2])
     con.close()
     return None
 
@@ -128,7 +129,7 @@ def print_token_state(file, state):
     print("==== Token Balance ====")
     print(table)
     total = "{:.2f}$".format(total_val)
-    print_table_summary(table,"Total",total)
+    print_table_summary(table, "Total", total)
     return total_val
 
 
@@ -145,15 +146,16 @@ def print_liquidity_state(file, state):
     print("==== Liquidity Pool Balance ====")
     print(table)
     total = "{:.2f}$".format(total_val)
-    print_table_summary(table,"Total",total)
+    print_table_summary(table, "Total", total)
     return total_val
 
 
 def print_wallet_state(file, state, time, wallet):
-    print("State {} from {} for wallet address {}".format(state,time,wallet))
+    print("State {} from {} for wallet address {}".format(state, time, wallet))
     total = print_token_state(file, state)
     total += print_liquidity_state(file, state)
     print("=== Total wallet value: {:.2f}$ ===".format(total))
+
 
 def list_states(file, wallet):
     con = sqlite3.connect(file)
@@ -161,10 +163,12 @@ def list_states(file, wallet):
     if wallet is None:
         res = cur.execute("SELECT * FROM state")
     else:
-        res = cur.execute("SELECT * FROM state WHERE wallet_address = ?",(wallet,))
+        res = cur.execute(
+            "SELECT * FROM state WHERE wallet_address = ?", (wallet,))
     table = from_db_cursor(res)
     print(table)
     con.close()
+
 
 def drop_state(file, state):
     con = sqlite3.connect(file)
@@ -173,6 +177,7 @@ def drop_state(file, state):
     cur.execute('DELETE FROM state WHERE id = ?', (state,))
     con.commit()
     con.close()
+
 
 def drop_states_by_time(file, time_clause):
     con = sqlite3.connect(file)
@@ -193,11 +198,12 @@ def drop_states_by_time(file, time_clause):
 def format_wallet_address(wallet):
     return wallet.lower()
 
+
 def print_table_summary(table, summary_title, summary_value):
     padding_bw = (3 * (len(table.field_names)-1))
     tb_width = sum(table._widths)
     print('| ' + summary_title + (' ' * (tb_width - len(summary_title + summary_value)) +
-                            ' ' * padding_bw) + summary_value + ' |')
+                                  ' ' * padding_bw) + summary_value + ' |')
     print('+-' + '-' * tb_width + '-' * padding_bw + '-+')
 
 #  _    _       _                           __  __ _
@@ -208,6 +214,8 @@ def print_table_summary(table, summary_title, summary_value):
 #  \____/|_| |_|_|___/ \_/\_/ \__,_| .__/  |_|  |_|_|___/\___|
 #                                  | |
 #                                  |_|
+
+
 def fetch_liquidities(wallet, state, exchange):
     req_data = """
 {{"query":
@@ -319,9 +327,11 @@ default_db = "wallettools.sqlite"
 def cli():
     pass
 
-db_file_helptext="The SQLite DB file. Default: 'wallettools.sqlite'"
-wallet_helptext="Your xDai wallet address"
-exchange_helptext='Uniswap V2 compatible exchange APIs to query. Default: Honeyswap API'
+
+db_file_helptext = "The SQLite DB file. Default: 'wallettools.sqlite'"
+wallet_helptext = "Your xDai wallet address"
+exchange_helptext = 'Uniswap V2 compatible exchange APIs to query. Default: Honeyswap API'
+
 
 @cli.command()
 @click.option('--wallet', help=wallet_helptext, required=True)
@@ -348,7 +358,8 @@ def show(wallet, db, exchange, fetch):
     if state is None:
         print("Could not find any state for wallet address {}".format(wallet))
         return
-    print_wallet_state(db, state[0], "{}".format(state[1]),wallet)
+    print_wallet_state(db, state[0], "{}".format(state[1]), wallet)
+
 
 @cli.command()
 @click.option('--wallet', help=wallet_helptext, required=False)
@@ -358,10 +369,11 @@ def states(wallet, db):
     if wallet is not None:
         wallet = format_wallet_address(wallet)
     init_db(db)
-    list_states(db,wallet)
+    list_states(db, wallet)
+
 
 @cli.command()
-@click.option('--state', help='The state to view', required=True,type=int)
+@click.option('--state', help='The state to view', required=True, type=int)
 @click.option('--db', help=db_file_helptext, default=default_db)
 def state(state, db):
     """Shows the wallet balance in a given historical state"""
@@ -370,15 +382,17 @@ def state(state, db):
     if state is None:
         print("Could not find any state with id {}".format(state))
         return
-    print_wallet_state(db, state[0], "{}".format(state[2]),state[1])
+    print_wallet_state(db, state[0], "{}".format(state[2]), state[1])
+
 
 def abort_if_false(ctx, param, value):
     if not value:
         ctx.abort()
 
+
 @cli.command()
 @click.option('--db', help=db_file_helptext, default=default_db)
-@click.option('--state', help='A specific state to prune',type=int)
+@click.option('--state', help='A specific state to prune', type=int)
 @click.option('--time', help="Only keep the most recent states for a given time period. (e.g.: one state per wallet per hour)", type=click.Choice(['YEAR', 'MONTH', 'WEEK', 'DAY', 'HOUR'], case_sensitive=False))
 @click.option('--yes', is_flag=True, callback=abort_if_false,
               expose_value=False,
@@ -388,21 +402,21 @@ def prune(db, state, time):
     init_db(db)
     if state is not None:
         print("Pruning state {}".format(state))
-        drop_state(db,state)
+        drop_state(db, state)
     if time is not None:
         print("Pruning states based on {}".format(time))
         time = time.upper()
         if time == "YEAR":
-            drop_states_by_time(db,"%Y")
+            drop_states_by_time(db, "%Y")
         elif time == "MONTH":
-            drop_states_by_time(db,"%Y-%m")
+            drop_states_by_time(db, "%Y-%m")
         elif time == "WEEK":
-            drop_states_by_time(db,"%Y-%W")
+            drop_states_by_time(db, "%Y-%W")
         elif time == "DAY":
-            drop_states_by_time(db,"%Y-%m-%d")
+            drop_states_by_time(db, "%Y-%m-%d")
         elif time == "HOUR":
-            drop_states_by_time(db,"%Y-%m-%d-%H")
-    
+            drop_states_by_time(db, "%Y-%m-%d-%H")
+
 
 if __name__ == '__main__':
     cli()
