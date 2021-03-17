@@ -21,8 +21,7 @@ db_file = "wallettools.sqlite"
 def init_db(file):
     con = sqlite3.connect(file)
     cur = con.cursor()
-    cur.execute('''
-        PRAGMA foreign_keys = ON;''')
+    cur.execute('''PRAGMA foreign_keys = ON;''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS state
         (id INTEGER PRIMARY KEY, wallet_address VARCHAR(255), timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
@@ -165,6 +164,22 @@ def list_states(file, wallet):
         res = cur.execute("SELECT * FROM state WHERE wallet_address = ?",(wallet,))
     table = from_db_cursor(res)
     print(table)
+    con.close()
+
+def drop_state(file, state):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    cur.execute('''PRAGMA foreign_keys = ON;''')
+    cur.execute('DELETE FROM state WHERE id = ?', (state,))
+    con.commit()
+    con.close()
+
+def drop_states_by_time(file, time_clause):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    cur.execute('''PRAGMA foreign_keys = ON;''')
+    cur.execute('DELETE FROM state WHERE id NOT IN (SELECT id FROM state GROUP BY wallet_address, strftime(?,timestamp) HAVING MAX(timestamp) ORDER BY id)', (time_clause,))
+    con.commit()
     con.close()
 
 #  __  __ _
@@ -356,6 +371,38 @@ def state(state, db):
         print("Could not find any state with id {}".format(state))
         return
     print_wallet_state(db, state[0], "{}".format(state[2]),state[1])
+
+def abort_if_false(ctx, param, value):
+    if not value:
+        ctx.abort()
+
+@cli.command()
+@click.option('--db', help=db_file_helptext, default=default_db)
+@click.option('--state', help='A specific state to prune',type=int)
+@click.option('--time', help="Only keep the most recent states for a given time period. (e.g.: one state per wallet per hour)", type=click.Choice(['YEAR', 'MONTH', 'WEEK', 'DAY', 'HOUR'], case_sensitive=False))
+@click.option('--yes', is_flag=True, callback=abort_if_false,
+              expose_value=False,
+              prompt='Are you sure you want to prune the states?')
+def prune(db, state, time):
+    """Prunes states depending on given options"""
+    init_db(db)
+    if state is not None:
+        print("Pruning state {}".format(state))
+        drop_state(db,state)
+    if time is not None:
+        print("Pruning states based on {}".format(time))
+        time = time.upper()
+        if time == "YEAR":
+            drop_states_by_time(db,"%Y")
+        elif time == "MONTH":
+            drop_states_by_time(db,"%Y-%m")
+        elif time == "WEEK":
+            drop_states_by_time(db,"%Y-%W")
+        elif time == "DAY":
+            drop_states_by_time(db,"%Y-%m-%d")
+        elif time == "HOUR":
+            drop_states_by_time(db,"%Y-%m-%d-%H")
+    
 
 if __name__ == '__main__':
     cli()
