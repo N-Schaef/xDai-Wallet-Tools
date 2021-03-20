@@ -120,16 +120,6 @@ def get_state_id(file, state):
     return None
 
 
-def get_perc_diff(old, new):
-    if old == 0.0 and new == 0.0:
-        return "-"
-    if old is None or old == 0.0:
-        return "New"
-    if new is None:
-        return "-100%"
-    diff = old-new
-    return "{:.2f}%".format((diff/old)*100)
-
 
 def print_token_state(file, state, compare=None):
     con = sqlite3.connect(file)
@@ -154,23 +144,24 @@ def print_token_state(file, state, compare=None):
             old_total += total
             if row[5] in contents:
                 old = contents[row[5]]
-                contents[row[5]] = [old[0], old[1], "{} ({})".format(old[2], get_perc_diff(
-                    old[2], balance)), "{} ({})".format(old[3], get_perc_diff(old[3], row[4])), "{:.2f} $ ({})".format(old[4], get_perc_diff(old[4], total))]
+                contents[row[5]] = [old[0], old[1], format_balance(old[2], get_perc_diff(
+                    old[2], balance)), format_money(old[3], get_perc_diff(old[3], row[4])), format_money(old[4], get_perc_diff(old[4], total))]
             else:
                 contents[row[5]] = [row[0], row[1], balance,
                                     row[4], "{:.2f}".format(total)]
     for row in contents.items():
         r = row[1]
+        if not isinstance(r[2],str):
+            r[2] = format_balance(r[2])
         if not isinstance(r[3],str):
-            r[3] = "{:.2f} $".format(r[3])
+            r[3] = format_money(r[3])
         if not isinstance(r[4],str):
-            r[4] = "{:.2f} $".format(r[4])
+            r[4] = format_money(r[4])
         table.add_row(row[1])
     table.align = "l"
     print("==== Token Balance ====")
     print(table)
-    total = "{:.2f} $ ({})".format(
-        total_val, get_perc_diff(old_total, total_val))
+    total = format_money(total_val, get_perc_diff(old_total, total_val))
     print_table_summary(table, "Total", total)
     return (total_val, old_total)
 
@@ -192,18 +183,19 @@ def print_liquidity_state(file, state, compare=None):
             old_total += row[3]
             if (row[4], row[5]) in contents:
                 old = contents[(row[4], row[5])]
-                contents[(row[4], row[5])] = [old[0], "{} ({})".format(old[1], get_perc_diff(
-                    old[1], row[2])), "{:.2f} $ ({})".format(old[2], get_perc_diff(old[2], row[3]))]
+                contents[(row[4], row[5])] = [old[0] ,format_balance(old[1], get_perc_diff(
+                    old[1], row[2])), format_money(old[2], get_perc_diff(old[2], row[3]))]
     for row in contents.items():
         r = row[1]
+        if not isinstance(r[1],str):
+            r[1] = format_balance(r[1])
         if not isinstance(r[2],str):
-            r[2] = "{:.2f} $".format(r[2])
+            r[2] = format_money(r[2])
         table.add_row(row[1])
     print("==== Liquidity Pool Balance ====")
     table.align = "l"
     print(table)
-    total = "{:.2f} $ ({})".format(
-        total_val, get_perc_diff(old_total, total_val))
+    total = format_money(total_val, get_perc_diff(old_total, total_val))
     print_table_summary(table, "Total", total)
     return (total_val, old_total)
 
@@ -252,6 +244,37 @@ def drop_states_by_time(file, time_clause):
 # | |\/| | / __|/ __|
 # | |  | | \__ \ (__
 # |_|  |_|_|___/\___|
+
+
+def get_perc_diff(old, new):
+    if old == 0.0 and new == 0.0:
+        return "-"
+    if old is None or old == 0.0:
+        return "New"
+    if new is None:
+        return "-100%"
+    diff = old-new
+    out = "{:+.2f}%".format((diff/old)*100)
+
+    if diff == 0.0:
+        return "-"
+    return out
+
+
+def format_money(val, diff = None):
+    if diff is None:
+        if val < 1.0:
+            return "{:.3g} $".format(val)
+        return "{:.2f} $".format(val)
+    if val < 1.0:
+        return "{:.3g} $ ({})".format(val,diff)
+    return "{:.2f} $ ({})".format(val,diff)
+
+def format_balance(val, diff = None):
+    if diff is None:
+        return "{:.3g}".format(val)
+    return "{:.3g} ({})".format(val,diff)
+
 
 
 def format_wallet_address(wallet):
