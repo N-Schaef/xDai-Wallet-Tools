@@ -201,7 +201,10 @@ def print_liquidity_state(file, state, compare=None):
 
 
 def print_wallet_state(file, state, time, wallet, compare=None):
-    print("State {} from {} for wallet address {}".format(state, time, wallet))
+    comparestr = ""
+    if compare is not None:
+        comparestr = " compared to state {}".format(compare)
+    print("State {} from {} for wallet address {}{}".format(state, time, wallet,comparestr))
     (total, old_total) = print_token_state(file, state, compare)
     (total2, old_total2) = print_liquidity_state(file, state, compare)
     print("=== Total wallet value: {:.2f} $ ({}) ===".format(
