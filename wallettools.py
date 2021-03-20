@@ -444,17 +444,18 @@ exchange_helptext = 'Uniswap V2 compatible exchange APIs to query. Default: Hone
 
 
 @cli.command()
-@click.option('--wallet', help=wallet_helptext, required=True)
+@click.option('--wallet', help=wallet_helptext, required=True, multiple=True)
 @click.option('--db', help=db_file_helptext, default=default_db)
 @click.option('--exchange', help=exchange_helptext, multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
 def update(wallet, db, exchange):
     """Fetches the current state of your wallet."""
     init_db(db)
-    fetch_db(db, format_wallet_address(wallet), exchange)
+    for w in wallet:
+        fetch_db(db, format_wallet_address(w), exchange)
 
 
 @cli.command()
-@click.option('--wallet', help=wallet_helptext, required=True)
+@click.option('--wallet', help=wallet_helptext, required=True, multiple=True)
 @click.option('--db', help=db_file_helptext, default=default_db)
 @click.option('--exchange', help=exchange_helptext, multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
 @click.option('--fetch/--no-fetch', default=True, help='Fetch new data before displaying')
@@ -462,16 +463,18 @@ def update(wallet, db, exchange):
 def show(wallet, db, exchange, fetch, compare):
     """Shows the last state of your wallet"""
     init_db(db)
-    wallet = format_wallet_address(wallet)
-    if fetch:
-        fetch_db(db, wallet, exchange)
-    state = get_last_state_id(db, wallet)
-    if compare is None:
-        compare = get_previous_state_id(db, state)
-    if state is None:
-        print("Could not find any state for wallet address {}".format(wallet))
-        return
-    print_wallet_state(db, state, compare)
+    for w in wallet:
+        w = format_wallet_address(w)
+        if fetch:
+            fetch_db(db, w, exchange)
+        state = get_last_state_id(db, w)
+        if compare is None:
+            compare = get_previous_state_id(db, state)
+        if state is None:
+            print("Could not find any state for wallet address {}".format(w))
+            return
+        print_wallet_state(db, state, compare)
+        print("\n\n")
 
 
 @cli.command()
