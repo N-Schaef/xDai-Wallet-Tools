@@ -78,12 +78,12 @@ def fetch_db(file, wallet, exchanges):
 
 
 def insert_tokens(file, state, wallet, exchange):
-    coin = fetch_coin(wallet,state)
+    coin = fetch_coin(wallet, state)
     rows = fetch_tokens(wallet, state, exchange)
     con = sqlite3.connect(file)
     cur = con.cursor()
     cur.execute(
-        'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (?,1,?,18,1.0)', (state,coin))
+        'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (?,1,?,18,1.0)', (state, coin))
     cur.executemany(
         'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (?,?,?,?,?)', rows)
     con.commit()
@@ -120,47 +120,100 @@ def get_state_id(file, state):
     return None
 
 
-def print_token_state(file, state):
+def get_perc_diff(old, new):
+    if old == 0.0 and new == 0.0:
+        return "-"
+    if old is None or old == 0.0:
+        return "New"
+    if new is None:
+        return "-100%"
+    diff = new - old
+    return "{:.2f}%".format((diff/old)*100)
+
+
+def print_token_state(file, state, compare=None):
     con = sqlite3.connect(file)
     cur = con.cursor()
     table = PrettyTable()
     table.field_names = ["Name", "Symbol", "Balance", "Price", "Value"]
     total_val = 0.0
-    for row in cur.execute("SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ?;", (state,)):
+    old_total = 0.0
+    contents = {}
+
+    for row in cur.execute("SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ?;", (state,)):
         balance = int(row[2])/pow(10, row[3])
         total = balance*row[4]
         total_val += total
-        table.add_row([row[0], row[1], balance,
-                       row[4], "{:.2f}$".format(total)])
+        contents[row[5]] = [row[0], row[1], balance,
+                            row[4], total]
+    if compare is not None:
+
+        for row in cur.execute("SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ?;", (compare,)):
+            balance = int(row[2])/pow(10, row[3])
+            total = balance*row[4]
+            old_total += total
+            if row[5] in contents:
+                old = contents[row[5]]
+                contents[row[5]] = [old[0], old[1], "{} ({})".format(old[2], get_perc_diff(
+                    old[2], balance)), "{} ({})".format(old[3], get_perc_diff(old[3], row[4])), "{:.2f} $ ({})".format(old[4], get_perc_diff(old[4], total))]
+            else:
+                contents[row[5]] = [row[0], row[1], balance,
+                                    row[4], "{:.2f}".format(total)]
+    for row in contents.items():
+        r = row[1]
+        if not isinstance(r[3],str):
+            r[3] = "{:.2f} $".format(r[3])
+        if not isinstance(r[4],str):
+            r[4] = "{:.2f} $".format(r[4])
+        table.add_row(row[1])
+    table.align = "l"
     print("==== Token Balance ====")
     print(table)
-    total = "{:.2f}$".format(total_val)
+    total = "{:.2f} $ ({})".format(
+        total_val, get_perc_diff(old_total, total_val))
     print_table_summary(table, "Total", total)
-    return total_val
+    return (total_val, old_total)
 
 
-def print_liquidity_state(file, state):
+def print_liquidity_state(file, state, compare=None):
     con = sqlite3.connect(file)
     cur = con.cursor()
     table = PrettyTable()
     table.field_names = ["Pair", "Balance", "Value"]
     total_val = 0.0
-    for row in cur.execute("SELECT t0.symbol,  t1.symbol, l.balance, l.price FROM (liqudity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;", (state,)):
+    old_total = 0.0
+    contents = {}
+    for row in cur.execute("SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liqudity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;", (state,)):
         total_val += row[3]
-        table.add_row(["{}-{}".format(row[0], row[1]),
-                       row[2], "{:.2f}$".format(row[3])])
+        contents[(row[4], row[5])] = [
+            "{}-{}".format(row[0], row[1]), row[2], row[3]]
+    if compare is not None:
+        for row in cur.execute("SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liqudity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;", (compare,)):
+            old_total += row[3]
+            if (row[4], row[5]) in contents:
+                old = contents[(row[4], row[5])]
+                contents[(row[4], row[5])] = [old[0], "{} ({})".format(old[1], get_perc_diff(
+                    old[1], row[2])), "{:.2f} $ ({})".format(old[2], get_perc_diff(old[2], row[3]))]
+    for row in contents.items():
+        r = row[1]
+        if not isinstance(r[2],str):
+            r[2] = "{:.2f} $".format(r[2])
+        table.add_row(row[1])
     print("==== Liquidity Pool Balance ====")
+    table.align = "l"
     print(table)
-    total = "{:.2f}$".format(total_val)
+    total = "{:.2f} $ ({})".format(
+        total_val, get_perc_diff(old_total, total_val))
     print_table_summary(table, "Total", total)
-    return total_val
+    return (total_val, old_total)
 
 
-def print_wallet_state(file, state, time, wallet):
+def print_wallet_state(file, state, time, wallet, compare=None):
     print("State {} from {} for wallet address {}".format(state, time, wallet))
-    total = print_token_state(file, state)
-    total += print_liquidity_state(file, state)
-    print("=== Total wallet value: {:.2f}$ ===".format(total))
+    (total, old_total) = print_token_state(file, state, compare)
+    (total2, old_total2) = print_liquidity_state(file, state, compare)
+    print("=== Total wallet value: {:.2f} $ ({}) ===".format(
+        total+total2, get_perc_diff(old_total+old_total2, total+total2)))
 
 
 def list_states(file, wallet):
@@ -282,6 +335,7 @@ def fetch_token_price(exchange_url, token_address):
         print("Could not get data from {}".format(exchange_url))
     return None
 
+
 def fetch_coin(wallet, state_id):
     endpoint = "?module=account&action=balance&address={}".format(wallet)
     url = "{}{}".format(blockscout_url, endpoint)
@@ -293,6 +347,7 @@ def fetch_coin(wallet, state_id):
     else:
         print("Could not connect to {}".format(url))
         return None
+
 
 def fetch_tokens(wallet, state_id, exchange):
     endpoint = "?module=account&action=tokenlist&address={}".format(
@@ -365,17 +420,22 @@ def update(wallet, db, exchange):
 @click.option('--db', help=db_file_helptext, default=default_db)
 @click.option('--exchange', help=exchange_helptext, multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
 @click.option('--fetch/--no-fetch', default=True, help='Fetch new data before displaying')
-def show(wallet, db, exchange, fetch):
+@click.option('--compare', help='A state to compare to, default last sate of wallet', type=int)
+def show(wallet, db, exchange, fetch, compare):
     """Shows the last state of your wallet"""
     init_db(db)
     wallet = format_wallet_address(wallet)
+    if compare is None:
+        id = get_last_state_id(db, wallet)
+        if id is not None:
+            compare = id[0]
     if fetch:
         fetch_db(db, wallet, exchange)
     state = get_last_state_id(db, wallet)
     if state is None:
         print("Could not find any state for wallet address {}".format(wallet))
         return
-    print_wallet_state(db, state[0], "{}".format(state[1]), wallet)
+    print_wallet_state(db, state[0], "{}".format(state[1]), wallet, compare)
 
 
 @cli.command()
@@ -392,14 +452,15 @@ def states(wallet, db):
 @cli.command()
 @click.option('--state', help='The state to view', required=True, type=int)
 @click.option('--db', help=db_file_helptext, default=default_db)
-def state(state, db):
+@click.option('--compare', help='A state to compare to', type=int)
+def state(state, db, compare):
     """Shows the wallet balance in a given historical state"""
     init_db(db)
     state = get_state_id(db, state)
     if state is None:
         print("Could not find any state with id {}".format(state))
         return
-    print_wallet_state(db, state[0], "{}".format(state[2]), state[1])
+    print_wallet_state(db, state[0], "{}".format(state[2]), state[1], compare)
 
 
 def abort_if_false(ctx, param, value):
