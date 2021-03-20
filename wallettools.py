@@ -127,7 +127,7 @@ def get_perc_diff(old, new):
         return "New"
     if new is None:
         return "-100%"
-    diff = new - old
+    diff = old-new
     return "{:.2f}%".format((diff/old)*100)
 
 
