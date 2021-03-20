@@ -105,11 +105,18 @@ def insert_liquidity(file, state, wallet, exchange):
 def get_last_state_id(file, wallet):
     con = sqlite3.connect(file)
     cur = con.cursor()
-    for row in cur.execute('SELECT id, timestamp FROM state WHERE wallet_address = ? ORDER BY id DESC LIMIT 1;', (wallet,)):
-        return (row[0], row[1])
+    for row in cur.execute('SELECT id FROM state WHERE wallet_address = ? ORDER BY id DESC LIMIT 1;', (wallet,)):
+        return row[0]
     con.close()
     return None
 
+def get_previous_state_id(file, state):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    for row in cur.execute('SELECT s1.id FROM state s1 INNER JOIN state s2 ON s1.wallet_address = s2.wallet_address WHERE s2.id = ?  AND s1.id < s2.id ORDER BY s1.id DESC LIMIT 1;', (state,)):
+        return row[0]
+    con.close()
+    return None
 
 def get_state_id(file, state):
     con = sqlite3.connect(file)
@@ -200,11 +207,16 @@ def print_liquidity_state(file, state, compare=None):
     return (total_val, old_total)
 
 
-def print_wallet_state(file, state, time, wallet, compare=None):
+def print_wallet_state(file, state, compare=None):
+    (_,wallet,ts) = get_state_id(file,state)
     comparestr = ""
     if compare is not None:
-        comparestr = " compared to state {}".format(compare)
-    print("State {} from {} for wallet address {}{}".format(state, time, wallet,comparestr))
+        (_,old_wallet,old_ts) = get_state_id(file,state)
+        wallet_str = ""
+        if wallet != old_wallet:
+            wallet_str = "for wallet {}".format(old_wallet)
+        comparestr = " compared to state {} from {} {}".format(compare,old_ts,wallet_str)
+    print("State {} from {} for wallet address {}{}".format(state, ts, wallet,comparestr))
     (total, old_total) = print_token_state(file, state, compare)
     (total2, old_total2) = print_liquidity_state(file, state, compare)
     print("=== Total wallet value: {:.2f} $ ({}) ===".format(
@@ -451,17 +463,15 @@ def show(wallet, db, exchange, fetch, compare):
     """Shows the last state of your wallet"""
     init_db(db)
     wallet = format_wallet_address(wallet)
-    if compare is None:
-        id = get_last_state_id(db, wallet)
-        if id is not None:
-            compare = id[0]
     if fetch:
         fetch_db(db, wallet, exchange)
     state = get_last_state_id(db, wallet)
+    if compare is None:
+        compare = get_previous_state_id(db, state)
     if state is None:
         print("Could not find any state for wallet address {}".format(wallet))
         return
-    print_wallet_state(db, state[0], "{}".format(state[1]), wallet, compare)
+    print_wallet_state(db, state, compare)
 
 
 @cli.command()
@@ -482,11 +492,11 @@ def states(wallet, db):
 def state(state, db, compare):
     """Shows the wallet balance in a given historical state"""
     init_db(db)
-    state = get_state_id(db, state)
-    if state is None:
-        print("Could not find any state with id {}".format(state))
+    state_info = get_state_id(db, state)
+    if state_info is None:
+        print("Could not find any state with id {}".format(state_info))
         return
-    print_wallet_state(db, state[0], "{}".format(state[2]), state[1], compare)
+    print_wallet_state(db, state_info[0], compare)
 
 
 def abort_if_false(ctx, param, value):
