@@ -8,6 +8,7 @@ from prettytable import PrettyTable, from_db_cursor
 from datetime import datetime
 
 blockscout_url = "https://blockscout.com/xdai/mainnet/api"
+uniswap_api = "https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"
 db_file = "wallettools.sqlite"
 
 #    _____  ____
@@ -18,7 +19,20 @@ db_file = "wallettools.sqlite"
 #   |_____/|____/
 
 
+def migrate_db(file):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    cur.execute(
+        '''SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?;''', ("liqudity",))
+    if cur.fetchone()[0] > 0:
+        print("Migrating liquidity table")
+        cur.execute('''ALTER TABLE liqudity RENAME TO liquidity;''')
+    con.commit()
+    con.close()
+
+
 def init_db(file):
+    migrate_db(file)
     con = sqlite3.connect(file)
     cur = con.cursor()
     cur.execute('''PRAGMA foreign_keys = ON;''')
@@ -39,12 +53,16 @@ def init_db(file):
         )
         ''')
     cur.execute('''
-        CREATE TABLE IF NOT EXISTS liqudity
+        CREATE TABLE IF NOT EXISTS liquidity
         (state_id INTEGER REFERENCES state(id), token0_id INTEGER REFERENCES token(id), token1_id INTEGER REFERENCES token(id), balance REAL, price REAL,
         FOREIGN KEY(state_id) REFERENCES state(id) ON DELETE CASCADE,
         FOREIGN KEY(token0_id) REFERENCES token(id) ON DELETE CASCADE,
         FOREIGN KEY(token1_id) REFERENCES token(id) ON DELETE CASCADE
         )
+        ''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS liquidity_token
+        (address VARCHAR(255) UNIQUE)
         ''')
 
     con.commit()
@@ -63,6 +81,15 @@ def insert_token(file, address, name, symbol):
         rowId = row[0]
     con.close()
     return rowId
+
+
+def insert_liquidity_token(file, address):
+    con = sqlite3.connect(file)
+    cur = con.cursor()
+    cur.execute('INSERT OR IGNORE INTO liquidity_token (address) values(?);',
+                (address,))
+    con.commit()
+    con.close()
 
 
 def fetch_db(file, wallet, exchanges):
@@ -97,7 +124,7 @@ def insert_liquidity(file, state, wallet, exchange):
     con = sqlite3.connect(file)
     cur = con.cursor()
     cur.executemany(
-        'INSERT INTO liqudity(state_id,token0_id,token1_id, balance, price) VALUES (?,?,?,?,?)', rows)
+        'INSERT INTO liquidity(state_id,token0_id,token1_id, balance, price) VALUES (?,?,?,?,?)', rows)
     con.commit()
     con.close()
 
@@ -138,7 +165,7 @@ def print_token_state(file, state, compare=None):
     old_total = 0.0
     contents = {}
 
-    for row in cur.execute("SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ?;", (state,)):
+    for row in cur.execute("SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ? AND token.address NOT IN (SELECT * FROM liquidity_token);", (state,)):
         balance = int(row[2])/pow(10, row[3])
         total = balance*row[4]
         total_val += total
@@ -146,7 +173,7 @@ def print_token_state(file, state, compare=None):
                             row[4], total]
     if compare is not None:
 
-        for row in cur.execute("SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ?;", (compare,)):
+        for row in cur.execute("SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ? AND token.address NOT IN (SELECT * FROM liquidity_token);", (compare,)):
             balance = int(row[2])/pow(10, row[3])
             total = balance*row[4]
             old_total += total
@@ -184,12 +211,12 @@ def print_liquidity_state(file, state, compare=None):
     total_val = 0.0
     old_total = 0.0
     contents = {}
-    for row in cur.execute("SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liqudity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;", (state,)):
+    for row in cur.execute("SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liquidity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;", (state,)):
         total_val += row[3]
         contents[(row[4], row[5])] = [
             "{}-{}".format(row[0], row[1]), row[2], row[3]]
     if compare is not None:
-        for row in cur.execute("SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liqudity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;", (compare,)):
+        for row in cur.execute("SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liquidity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;", (compare,)):
             old_total += row[3]
             if (row[4], row[5]) in contents:
                 current = contents[(row[4], row[5])]
@@ -351,7 +378,7 @@ def show_one_wallet(wallet, db, exchange, fetch, compare):
 def fetch_liquidities(wallet, state, exchange):
     req_data = """
 {{"query":
-"{{user(id: \\"{wallet}\\"){{\\nliquidityPositions{{id,liquidityTokenBalance,pair{{totalSupply,reserveUSD,token0{{id,name,symbol}}token1{{id,name,symbol}}}}}}}}}}", "variables": null
+"{{user(id: \\"{wallet}\\"){{\\nliquidityPositions{{id,liquidityTokenBalance,pair{{id,totalSupply,reserveUSD,token0{{id,name,symbol}}token1{{id,name,symbol}}}}}}}}}}", "variables": null
 }}
   """.format(wallet=format_wallet_address(wallet))
     req_json = json.loads(req_data)
@@ -365,6 +392,7 @@ def fetch_liquidities(wallet, state, exchange):
         liquidity_rows = []
         for liquidity in liquidity_data:
             pair = liquidity["pair"]
+            insert_liquidity_token(db_file, pair["id"])
             token0 = pair["token0"]
             token0_id = insert_token(
                 db_file, token0["id"], token0["name"], token0["symbol"])
@@ -485,7 +513,7 @@ exchange_helptext = 'Uniswap V2 compatible exchange APIs to query. Default: Hone
 @cli.command()
 @click.option('--wallet', help=wallet_helptext, required=True, multiple=True)
 @click.option('--db', help=db_file_helptext, default=default_db)
-@click.option('--exchange', help=exchange_helptext, multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
+@click.option('--exchange', help=exchange_helptext, multiple=True, default=[uniswap_api])
 def update(wallet, db, exchange):
     """Fetches the current state of your wallet."""
     init_db(db)
@@ -496,7 +524,7 @@ def update(wallet, db, exchange):
 @cli.command()
 @click.option('--wallet', help=wallet_helptext, required=True, multiple=True)
 @click.option('--db', help=db_file_helptext, default=default_db)
-@click.option('--exchange', help=exchange_helptext, multiple=True, default=["https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"])
+@click.option('--exchange', help=exchange_helptext, multiple=True, default=[uniswap_api])
 @click.option('--fetch/--no-fetch', default=True, help='Fetch new data before displaying')
 @click.option('--compare', help='A state to compare to, default last sate of wallet', type=int)
 def show(wallet, db, exchange, fetch, compare):
