@@ -151,9 +151,9 @@ def print_token_state(file, state, compare=None):
             total = balance*row[4]
             old_total += total
             if row[5] in contents:
-                old = contents[row[5]]
-                contents[row[5]] = [old[0], old[1], format_balance(old[2], get_perc_diff(
-                    old[2], balance)), format_money(old[3], get_perc_diff(old[3], row[4])), format_money(old[4], get_perc_diff(old[4], total))]
+                current = contents[row[5]]
+                contents[row[5]] = [current[0], current[1], format_balance(current[2], get_perc_diff(
+                    balance, current[2])), format_money(current[3], get_perc_diff(row[4],current[3])), format_money(current[4], get_perc_diff(total, current[4]))]
             else:
                 contents[row[5]] = [row[0], row[1], balance,
                                     row[4], "{:.2f}".format(total)]
@@ -190,9 +190,9 @@ def print_liquidity_state(file, state, compare=None):
         for row in cur.execute("SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liqudity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;", (compare,)):
             old_total += row[3]
             if (row[4], row[5]) in contents:
-                old = contents[(row[4], row[5])]
-                contents[(row[4], row[5])] = [old[0], format_balance(old[1], get_perc_diff(
-                    old[1], row[2])), format_money(old[2], get_perc_diff(old[2], row[3]))]
+                current = contents[(row[4], row[5])]
+                contents[(row[4], row[5])] = [current[0], format_balance(current[1], get_perc_diff(
+                    row[2], current[1])), format_money(current[2], get_perc_diff(row[3], current[2]))]
     for row in contents.items():
         r = row[1]
         if not isinstance(r[1], str):
@@ -273,7 +273,7 @@ def get_perc_diff(old, new):
         return "New"
     if new is None:
         return "-100%"
-    perc_diff = ((old-new)/((old+new)/2))*100
+    perc_diff = ((new-old)/abs(old))*100
 
     out = "{:+.2f}%".format(perc_diff)
 
