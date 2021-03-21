@@ -154,8 +154,8 @@ def print_token_state(file, state, compare=None):
                 current = contents[row[5]]
                 contents[row[5]] = [current[0], current[1], format_balance(current[2], balance), format_money(current[3], row[4]), format_money(current[4], total)]
             else:
-                contents[row[5]] = [row[0], row[1], balance,
-                                    row[4], "{:.2f}".format(total)]
+                contents[row[5]] = [row[0], row[1], format_balance(0.0,balance),
+                                    format_money(row[4]), format_money(0.0,total)]
     for row in contents.items():
         r = row[1]
         if not isinstance(r[2], str):
@@ -191,6 +191,8 @@ def print_liquidity_state(file, state, compare=None):
             if (row[4], row[5]) in contents:
                 current = contents[(row[4], row[5])]
                 contents[(row[4], row[5])] = [current[0], format_balance(current[1], row[2]), format_money(current[2], row[3])]
+            else:
+                contents[(row[4], row[5])]=["{}-{}".format(row[0], row[1]), format_balance(0.0,row[2]), format_money(0.0,row[3])]
     for row in contents.items():
         r = row[1]
         if not isinstance(r[1], str):
@@ -269,7 +271,7 @@ def get_perc_diff(old, new):
         return None
     if old is None or old == 0.0:
         return "New"
-    if new is None:
+    if new is None or new == 0:
         return "-100%"
     perc_diff = ((new-old)/abs(old))*100
 
