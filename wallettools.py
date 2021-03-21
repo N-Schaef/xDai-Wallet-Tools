@@ -386,15 +386,14 @@ def fetch_liquidities(wallet, state, exchange):
 #    | |/ _ \| |/ / _ \ '_ \/ __|
 #    | | (_) |   <  __/ | | \__ \
 #    |_|\___/|_|\_\___|_| |_|___/
-
-
-def fetch_token_price(exchange_url, token_address):
-    req_data = """
-                    
+def fetch_token_prices(exchange_url, token_addresses):
+    sep = ','
+    addresses = sep.join(map(lambda t: '\\"'+t+'\\"', token_addresses) )
+    req_data = """                 
 {{"query":
-"{{ tokenDayDatas(where: {{token:\\"{token}\\"}},orderBy: date, orderDirection: desc,first:1) {{id \\n priceUSD\\n date }}}}", "variables": null
+"{{ tokenDayDatas(where: {{token_in: [{tokens}]}},orderBy: date, orderDirection: desc, limit:{limit}) {{priceUSD, date, token {{id}} }}}}", "variables": null
 }}
-  """.format(token=token_address)
+  """.format(tokens=addresses,limit=len(token_addresses))
     req_json = json.loads(req_data)
 
     pair_response = requests.post(exchange_url, json=req_json)
@@ -402,7 +401,12 @@ def fetch_token_price(exchange_url, token_address):
         data = json.loads(pair_response.content)
         token_data = data["data"]["tokenDayDatas"]
         if len(token_data) > 0:
-            return float(token_data[0]["priceUSD"])
+            prices = {}
+            for token in token_data:
+                id = token["token"]["id"]
+                if id not in prices:
+                    prices[id] = float(token["priceUSD"])
+            return prices
     else:
         print("Could not get data from {}".format(exchange_url))
     return None
@@ -432,18 +436,17 @@ def fetch_tokens(wallet, state_id, exchange):
         wallet_rows = []
         if tokens is None:
             tokens = []
+        prices = fetch_token_prices(exchange,list(map(lambda t: t["contractAddress"], tokens)))
+        for token in tokens:
+            token["price"] = prices.get(token["contractAddress"],0.0)
         for token in tokens:
             if int(token["balance"]) == 0:
                 continue
             token_id = insert_token(
                 db_file, token["contractAddress"], token["name"], token["symbol"])
-            token_value = fetch_token_price(exchange, token["contractAddress"])
-            if token_value is None:
-                token_value = 0.0
-            if token_value is not None:
-                row = (state_id, token_id, token["balance"], int(
-                    token["decimals"]), token_value,)
-                wallet_rows.append(row)
+            row = (state_id, token_id, token["balance"], int(
+                    token["decimals"]), token["price"],)
+            wallet_rows.append(row)
         return wallet_rows
     else:
         print("Could not connect to {}".format(url))
