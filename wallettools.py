@@ -168,7 +168,9 @@ def print_token_state(file, state, compare=None):
     table.align = "l"
     print("==== Token Balance ====")
     print(table)
-    total = format_money(total_val, old_total)
+    if compare is None:
+         old_total = None
+    total = format_money(total_val, old_total)  
     print_table_summary(table, "Total", total)
     return (total_val, old_total)
 
@@ -203,6 +205,8 @@ def print_liquidity_state(file, state, compare=None):
     print("==== Liquidity Pool Balance ====")
     table.align = "l"
     print(table)
+    if compare is None:
+         old_total = None
     total = format_money(total_val, old_total)
     print_table_summary(table, "Total", total)
     return (total_val, old_total)
@@ -223,8 +227,12 @@ def print_wallet_state(file, state, compare=None):
     (total, old_total) = print_token_state(file, state, compare)
     (total2, old_total2) = print_liquidity_state(file, state, compare)
     total += total2
-    old_total += old_total2
-    print("=== Total wallet value: {:.2f} $ ({}) ===".format(
+    if old_total is not None and old_total2 is not None:
+        old_total += old_total2
+    if compare is None:
+        print("=== Total wallet value: {:.2f} $===".format(total))
+    else:
+        print("=== Total wallet value: {:.2f} $ ({}) ===".format(
         total, old_total))
 
 
