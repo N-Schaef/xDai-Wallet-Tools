@@ -152,10 +152,11 @@ def print_token_state(file, state, compare=None):
             old_total += total
             if row[5] in contents:
                 current = contents[row[5]]
-                contents[row[5]] = [current[0], current[1], format_balance(current[2], balance), format_money(current[3], row[4]), format_money(current[4], total)]
+                contents[row[5]] = [current[0], current[1], format_balance(
+                    current[2], balance), format_money(current[3], row[4]), format_money(current[4], total)]
             else:
-                contents[row[5]] = [row[0], row[1], format_balance(0.0,balance),
-                                    format_money(row[4]), format_money(0.0,total)]
+                contents[row[5]] = [row[0], row[1], format_balance(0.0, balance),
+                                    format_money(row[4]), format_money(0.0, total)]
     for row in contents.items():
         r = row[1]
         if not isinstance(r[2], str):
@@ -169,8 +170,8 @@ def print_token_state(file, state, compare=None):
     print("==== Token Balance ====")
     print(table)
     if compare is None:
-         old_total = None
-    total = format_money(total_val, old_total)  
+        old_total = None
+    total = format_money(total_val, old_total)
     print_table_summary(table, "Total", total)
     return (total_val, old_total)
 
@@ -192,9 +193,11 @@ def print_liquidity_state(file, state, compare=None):
             old_total += row[3]
             if (row[4], row[5]) in contents:
                 current = contents[(row[4], row[5])]
-                contents[(row[4], row[5])] = [current[0], format_balance(current[1], row[2]), format_money(current[2], row[3])]
+                contents[(row[4], row[5])] = [current[0], format_balance(
+                    current[1], row[2]), format_money(current[2], row[3])]
             else:
-                contents[(row[4], row[5])]=["{}-{}".format(row[0], row[1]), format_balance(0.0,row[2]), format_money(0.0,row[3])]
+                contents[(row[4], row[5])] = ["{}-{}".format(row[0], row[1]),
+                                              format_balance(0.0, row[2]), format_money(0.0, row[3])]
     for row in contents.items():
         r = row[1]
         if not isinstance(r[1], str):
@@ -206,7 +209,7 @@ def print_liquidity_state(file, state, compare=None):
     table.align = "l"
     print(table)
     if compare is None:
-         old_total = None
+        old_total = None
     total = format_money(total_val, old_total)
     print_table_summary(table, "Total", total)
     return (total_val, old_total)
@@ -229,12 +232,12 @@ def print_wallet_state(file, state, compare=None):
     total += total2
     if old_total is not None and old_total2 is not None:
         old_total += old_total2
-    diff_str = get_perc_diff(old_total,total)
+    diff_str = get_perc_diff(old_total, total)
     if compare is None or diff_str is None:
         print("=== Total wallet value: {:.2f} $===".format(total))
     else:
         print("=== Total wallet value: {:.2f} $ ({}) ===".format(
-        total,diff_str ))
+            total, diff_str))
 
 
 def list_states(file, wallet):
@@ -301,7 +304,6 @@ def format_money(val, old=None):
     if val < 1.0:
         return "{:.3g} $".format(val)
     return "{:.2f} $".format(val)
-    
 
 
 def format_balance(val, old=None):
@@ -310,7 +312,6 @@ def format_balance(val, old=None):
         if diff_str is not None:
             return "{:.3g} ({})".format(val, diff_str)
     return "{:.3g}".format(val)
-    
 
 
 def format_wallet_address(wallet):
@@ -388,12 +389,12 @@ def fetch_liquidities(wallet, state, exchange):
 #    |_|\___/|_|\_\___|_| |_|___/
 def fetch_token_prices(exchange_url, token_addresses):
     sep = ','
-    addresses = sep.join(map(lambda t: '\\"'+t+'\\"', token_addresses) )
+    addresses = sep.join(map(lambda t: '\\"'+t+'\\"', token_addresses))
     req_data = """                 
 {{"query":
 "{{ tokenDayDatas(where: {{token_in: [{tokens}]}},orderBy: date, orderDirection: desc, limit:{limit}) {{priceUSD, date, token {{id}} }}}}", "variables": null
 }}
-  """.format(tokens=addresses,limit=len(token_addresses))
+  """.format(tokens=addresses, limit=len(token_addresses))
     req_json = json.loads(req_data)
 
     pair_response = requests.post(exchange_url, json=req_json)
@@ -436,16 +437,17 @@ def fetch_tokens(wallet, state_id, exchange):
         wallet_rows = []
         if tokens is None:
             tokens = []
-        prices = fetch_token_prices(exchange,list(map(lambda t: t["contractAddress"], tokens)))
+        prices = fetch_token_prices(exchange, list(
+            map(lambda t: t["contractAddress"], tokens)))
         for token in tokens:
-            token["price"] = prices.get(token["contractAddress"],0.0)
+            token["price"] = prices.get(token["contractAddress"], 0.0)
         for token in tokens:
             if int(token["balance"]) == 0:
                 continue
             token_id = insert_token(
                 db_file, token["contractAddress"], token["name"], token["symbol"])
             row = (state_id, token_id, token["balance"], int(
-                    token["decimals"]), token["price"],)
+                token["decimals"]), token["price"],)
             wallet_rows.append(row)
         return wallet_rows
     else:
