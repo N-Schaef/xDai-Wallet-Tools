@@ -110,6 +110,7 @@ def get_last_state_id(file, wallet):
     con.close()
     return None
 
+
 def get_previous_state_id(file, state):
     con = sqlite3.connect(file)
     cur = con.cursor()
@@ -118,6 +119,7 @@ def get_previous_state_id(file, state):
     con.close()
     return None
 
+
 def get_state_id(file, state):
     con = sqlite3.connect(file)
     cur = con.cursor()
@@ -125,7 +127,6 @@ def get_state_id(file, state):
         return (row[0], row[1], row[2])
     con.close()
     return None
-
 
 
 def print_token_state(file, state, compare=None):
@@ -158,11 +159,11 @@ def print_token_state(file, state, compare=None):
                                     row[4], "{:.2f}".format(total)]
     for row in contents.items():
         r = row[1]
-        if not isinstance(r[2],str):
+        if not isinstance(r[2], str):
             r[2] = format_balance(r[2])
-        if not isinstance(r[3],str):
+        if not isinstance(r[3], str):
             r[3] = format_money(r[3])
-        if not isinstance(r[4],str):
+        if not isinstance(r[4], str):
             r[4] = format_money(r[4])
         table.add_row(row[1])
     table.align = "l"
@@ -190,13 +191,13 @@ def print_liquidity_state(file, state, compare=None):
             old_total += row[3]
             if (row[4], row[5]) in contents:
                 old = contents[(row[4], row[5])]
-                contents[(row[4], row[5])] = [old[0] ,format_balance(old[1], get_perc_diff(
+                contents[(row[4], row[5])] = [old[0], format_balance(old[1], get_perc_diff(
                     old[1], row[2])), format_money(old[2], get_perc_diff(old[2], row[3]))]
     for row in contents.items():
         r = row[1]
-        if not isinstance(r[1],str):
+        if not isinstance(r[1], str):
             r[1] = format_balance(r[1])
-        if not isinstance(r[2],str):
+        if not isinstance(r[2], str):
             r[2] = format_money(r[2])
         table.add_row(row[1])
     print("==== Liquidity Pool Balance ====")
@@ -208,19 +209,23 @@ def print_liquidity_state(file, state, compare=None):
 
 
 def print_wallet_state(file, state, compare=None):
-    (_,wallet,ts) = get_state_id(file,state)
+    (_, wallet, ts) = get_state_id(file, state)
     comparestr = ""
     if compare is not None:
-        (_,old_wallet,old_ts) = get_state_id(file,state)
+        (_, old_wallet, old_ts) = get_state_id(file, compare)
         wallet_str = ""
         if wallet != old_wallet:
             wallet_str = "for wallet {}".format(old_wallet)
-        comparestr = " compared to state {} from {} {}".format(compare,old_ts,wallet_str)
-    print("State {} from {} for wallet address {}{}".format(state, ts, wallet,comparestr))
+        comparestr = " compared to state {} from {} {}".format(
+            compare, old_ts, wallet_str)
+    print("State {} from {} for wallet address {}{}".format(
+        state, ts, wallet, comparestr))
     (total, old_total) = print_token_state(file, state, compare)
     (total2, old_total2) = print_liquidity_state(file, state, compare)
+    total += total2
+    old_total += old_total2
     print("=== Total wallet value: {:.2f} $ ({}) ===".format(
-        total+total2, get_perc_diff(old_total+old_total2, total+total2)))
+        total, get_perc_diff(old_total, total)))
 
 
 def list_states(file, wallet):
@@ -268,28 +273,29 @@ def get_perc_diff(old, new):
         return "New"
     if new is None:
         return "-100%"
-    diff = old-new
-    out = "{:+.2f}%".format((diff/old)*100)
+    perc_diff = ((old-new)/((old+new)/2))*100
 
-    if diff == 0.0:
+    out = "{:+.2f}%".format(perc_diff)
+
+    if perc_diff == 0.0:
         return "-"
     return out
 
 
-def format_money(val, diff = None):
+def format_money(val, diff=None):
     if diff is None:
         if val < 1.0:
             return "{:.3g} $".format(val)
         return "{:.2f} $".format(val)
     if val < 1.0:
-        return "{:.3g} $ ({})".format(val,diff)
-    return "{:.2f} $ ({})".format(val,diff)
+        return "{:.3g} $ ({})".format(val, diff)
+    return "{:.2f} $ ({})".format(val, diff)
 
-def format_balance(val, diff = None):
+
+def format_balance(val, diff=None):
     if diff is None:
         return "{:.3g}".format(val)
-    return "{:.3g} ({})".format(val,diff)
-
+    return "{:.3g} ({})".format(val, diff)
 
 
 def format_wallet_address(wallet):
@@ -302,6 +308,19 @@ def print_table_summary(table, summary_title, summary_value):
     print('| ' + summary_title + (' ' * (tb_width - len(summary_title + summary_value)) +
                                   ' ' * padding_bw) + summary_value + ' |')
     print('+-' + '-' * tb_width + '-' * padding_bw + '-+')
+
+
+def show_one_wallet(wallet, db, exchange, fetch, compare):
+    if fetch:
+        fetch_db(db, wallet, exchange)
+    state = get_last_state_id(db, wallet)
+    if compare is None:
+        compare = get_previous_state_id(db, state)
+    if state is None:
+        print("Could not find any state for wallet address {}".format(wallet))
+        return
+    print_wallet_state(db, state, compare)
+    print("\n\n")
 
 #  _    _       _                           __  __ _
 # | |  | |     (_)                         |  \/  (_)
@@ -465,16 +484,7 @@ def show(wallet, db, exchange, fetch, compare):
     init_db(db)
     for w in wallet:
         w = format_wallet_address(w)
-        if fetch:
-            fetch_db(db, w, exchange)
-        state = get_last_state_id(db, w)
-        if compare is None:
-            compare = get_previous_state_id(db, state)
-        if state is None:
-            print("Could not find any state for wallet address {}".format(w))
-            return
-        print_wallet_state(db, state, compare)
-        print("\n\n")
+        show_one_wallet(w, db, exchange, fetch, compare)
 
 
 @cli.command()
