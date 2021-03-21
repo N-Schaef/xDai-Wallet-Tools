@@ -229,11 +229,12 @@ def print_wallet_state(file, state, compare=None):
     total += total2
     if old_total is not None and old_total2 is not None:
         old_total += old_total2
-    if compare is None:
+    diff_str = get_perc_diff(old_total,total)
+    if compare is None or diff_str is None:
         print("=== Total wallet value: {:.2f} $===".format(total))
     else:
         print("=== Total wallet value: {:.2f} $ ({}) ===".format(
-        total, old_total))
+        total,diff_str ))
 
 
 def list_states(file, wallet):
