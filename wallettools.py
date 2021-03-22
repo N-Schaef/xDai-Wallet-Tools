@@ -107,6 +107,9 @@ def fetch_db(file, wallet, exchanges):
 def insert_tokens(file, state, wallet, exchange):
     coin = fetch_coin(wallet, state)
     rows = fetch_tokens(wallet, state, exchange)
+    if rows is None or coin is None:
+        return
+        
     con = sqlite3.connect(file)
     cur = con.cursor()
     cur.execute(
@@ -385,6 +388,9 @@ def fetch_liquidities(wallet, state, exchange):
     liquidity_response = requests.post(exchange, json=req_json)
     if(liquidity_response.ok):
         data = json.loads(liquidity_response.content)
+        if "errors" in data:
+            print("Error in exchange backend: {}".format(data["errors"]))
+            return None
         user = data["data"]["user"]
         if user is None:
             return None
@@ -428,6 +434,9 @@ def fetch_token_prices(exchange_url, token_addresses):
     pair_response = requests.post(exchange_url, json=req_json)
     if(pair_response.ok):
         data = json.loads(pair_response.content)
+        if "errors" in data:
+            print("Error in exchange backend: {}".format(data["errors"]))
+            return None
         token_data = data["data"]["tokenDayDatas"]
         if len(token_data) > 0:
             prices = {}
@@ -461,12 +470,17 @@ def fetch_tokens(wallet, state_id, exchange):
     token_response = requests.get(url)
     if(token_response.ok):
         data = json.loads(token_response.content)
+        if "errors" in data:
+            print("Error in exchange backend: {}".format(data["errors"]))
+            return None
         tokens = data["result"]
         wallet_rows = []
         if tokens is None:
             tokens = []
         prices = fetch_token_prices(exchange, list(
             map(lambda t: t["contractAddress"], tokens)))
+        if prices is None:
+            return None
         for token in tokens:
             token["price"] = prices.get(token["contractAddress"], 0.0)
         for token in tokens:
