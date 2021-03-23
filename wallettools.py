@@ -9,7 +9,7 @@ from datetime import datetime
 
 blockscout_url = "https://blockscout.com/xdai/mainnet/api"
 uniswap_api = "https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"
-db_file = "wallettools.sqlite"
+
 
 #    _____  ____
 #   |  __ \|  _ \
@@ -106,7 +106,7 @@ def fetch_db(file, wallet, exchanges):
 
 def insert_tokens(file, state, wallet, exchange):
     coin = fetch_coin(wallet, state)
-    rows = fetch_tokens(wallet, state, exchange)
+    rows = fetch_tokens(file, wallet, state, exchange)
     if rows is None or coin is None:
         return
         
@@ -121,7 +121,7 @@ def insert_tokens(file, state, wallet, exchange):
 
 
 def insert_liquidity(file, state, wallet, exchange):
-    rows = fetch_liquidities(wallet, state, exchange)
+    rows = fetch_liquidities(file, wallet, state, exchange)
     if rows is None:
         return
     con = sqlite3.connect(file)
@@ -378,7 +378,7 @@ def show_one_wallet(wallet, db, exchange, fetch, compare):
 #                                  |_|
 
 
-def fetch_liquidities(wallet, state, exchange):
+def fetch_liquidities(db,wallet, state, exchange):
     req_data = """
 {{"query":
 "{{user(id: \\"{wallet}\\"){{\\nliquidityPositions{{id,liquidityTokenBalance,pair{{id,totalSupply,reserveUSD,token0{{id,name,symbol}}token1{{id,name,symbol}}}}}}}}}}", "variables": null
@@ -398,13 +398,13 @@ def fetch_liquidities(wallet, state, exchange):
         liquidity_rows = []
         for liquidity in liquidity_data:
             pair = liquidity["pair"]
-            insert_liquidity_token(db_file, pair["id"])
+            insert_liquidity_token(db, pair["id"])
             token0 = pair["token0"]
             token0_id = insert_token(
-                db_file, token0["id"], token0["name"], token0["symbol"])
+                db, token0["id"], token0["name"], token0["symbol"])
             token1 = pair["token1"]
             token1_id = insert_token(
-                db_file, token1["id"], token1["name"], token1["symbol"])
+                db, token1["id"], token1["name"], token1["symbol"])
             pool_amount = (float(
                 pair["reserveUSD"])/float(pair["totalSupply"]))*float(liquidity["liquidityTokenBalance"])
             row = (state, token0_id, token1_id, float(
@@ -463,7 +463,7 @@ def fetch_coin(wallet, state_id):
         return None
 
 
-def fetch_tokens(wallet, state_id, exchange):
+def fetch_tokens(db,wallet, state_id, exchange):
     endpoint = "?module=account&action=tokenlist&address={}".format(
         format_wallet_address(wallet))
     url = "{}{}".format(blockscout_url, endpoint)
@@ -487,7 +487,7 @@ def fetch_tokens(wallet, state_id, exchange):
             if int(token["balance"]) == 0:
                 continue
             token_id = insert_token(
-                db_file, token["contractAddress"], token["name"], token["symbol"])
+                db, token["contractAddress"], token["name"], token["symbol"])
             row = (state_id, token_id, token["balance"], int(
                 token["decimals"]), token["price"],)
             wallet_rows.append(row)
@@ -495,11 +495,6 @@ def fetch_tokens(wallet, state_id, exchange):
     else:
         print("Could not connect to {}".format(url))
         return None
-
-
-def tokens(args):
-    init_db(db_file)
-    fetch_db(db_file, args.wallet, args.exchange)
 
 
 #
