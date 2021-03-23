@@ -18,9 +18,13 @@ uniswap_api = "https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"
 #   | |__| | |_) |
 #   |_____/|____/
 
+def open_db(db):
+    con = sqlite3.connect(db)
+    return con
+
 
 def migrate_db(file):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     cur.execute(
         '''SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?;''',
@@ -35,7 +39,7 @@ def migrate_db(file):
 
 def init_db(file):
     migrate_db(file)
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     cur.execute('''PRAGMA foreign_keys = ON;''')
     cur.execute('''
@@ -72,7 +76,7 @@ def init_db(file):
 
 
 def insert_token(file, address, name, symbol):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     cur.execute(
         'INSERT INTO token (address,name,symbol) values(?,?,?) ON CONFLICT(address) DO UPDATE SET name=excluded.name, symbol=excluded.symbol;',
@@ -90,7 +94,7 @@ def insert_token(file, address, name, symbol):
 
 
 def insert_liquidity_token(file, address):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     cur.execute('INSERT OR IGNORE INTO liquidity_token (address) values(?);',
                 (address,))
@@ -99,7 +103,7 @@ def insert_liquidity_token(file, address):
 
 
 def fetch_db(file, wallet, exchanges):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     cur.execute('INSERT INTO state(wallet_address) VALUES (?)', (wallet,))
     rowid = cur.lastrowid
@@ -116,7 +120,7 @@ def insert_tokens(file, state, wallet, exchange):
     if rows is None or coin is None:
         return
 
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     cur.execute(
         'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (?,1,?,18,1.0)',
@@ -133,7 +137,7 @@ def insert_liquidity(file, state, wallet, exchange):
     rows = fetch_liquidities(file, wallet, state, exchange)
     if rows is None:
         return
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     cur.executemany(
         'INSERT INTO liquidity(state_id,token0_id,token1_id, balance, price) VALUES (?,?,?,?,?)',
@@ -143,7 +147,7 @@ def insert_liquidity(file, state, wallet, exchange):
 
 
 def get_last_state_id(file, wallet):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     for row in cur.execute(
         'SELECT id FROM state WHERE wallet_address = ? ORDER BY id DESC LIMIT 1;',
@@ -155,7 +159,7 @@ def get_last_state_id(file, wallet):
 
 
 def get_previous_state_id(file, state):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     for row in cur.execute(
         'SELECT s1.id FROM state s1 INNER JOIN state s2 ON s1.wallet_address = s2.wallet_address WHERE s2.id = ?  AND s1.id < s2.id ORDER BY s1.id DESC LIMIT 1;',
@@ -167,7 +171,7 @@ def get_previous_state_id(file, state):
 
 
 def get_state_id(file, state):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     for row in cur.execute(
         'SELECT id, wallet_address, timestamp FROM state WHERE id = ? ORDER BY id DESC LIMIT 1;',
@@ -179,7 +183,7 @@ def get_state_id(file, state):
 
 
 def print_token_state(file, state, compare=None):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     table = PrettyTable()
     table.field_names = ["Name", "Symbol", "Balance", "Price", "Value"]
@@ -232,7 +236,7 @@ def print_token_state(file, state, compare=None):
 
 
 def print_liquidity_state(file, state, compare=None):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     table = PrettyTable()
     table.field_names = ["Pair", "Balance", "Value"]
@@ -302,7 +306,7 @@ def print_wallet_state(file, state, compare=None):
 
 
 def list_states(file, wallet):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     if wallet is None:
         res = cur.execute("SELECT * FROM state")
@@ -315,7 +319,7 @@ def list_states(file, wallet):
 
 
 def drop_state(file, state):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     cur.execute('''PRAGMA foreign_keys = ON;''')
     cur.execute('DELETE FROM state WHERE id = ?', (state,))
@@ -324,7 +328,7 @@ def drop_state(file, state):
 
 
 def drop_states_by_time(file, time_clause):
-    con = sqlite3.connect(file)
+    con = open_db(file)
     cur = con.cursor()
     cur.execute('''PRAGMA foreign_keys = ON;''')
     cur.execute(
