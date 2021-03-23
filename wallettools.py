@@ -3,9 +3,10 @@
 import click
 import json  # standard JSON parser
 import requests  # HTTP library
-import sqlite3
+import mysql.connector
+from mysql.connector import errorcode
 from prettytable import PrettyTable, from_db_cursor
-from datetime import datetime
+
 
 blockscout_url = "https://blockscout.com/xdai/mainnet/api"
 uniswap_api = "https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"
@@ -19,37 +20,33 @@ uniswap_api = "https://api.thegraph.com/subgraphs/name/1hive/uniswap-v2"
 #   |_____/|____/
 
 def open_db(db):
-    con = sqlite3.connect(db)
-    return con
+    try:
+        con =  mysql.connector.connect(user="xdaiwallet",password='xdaiwallet',host='localhost',
+                              database='xdaiwallet',
+                              auth_plugin='mysql_native_password')
+        return con
+    except mysql.connector.Error as err:
+      if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+        print("Something is wrong with your user name or password")
+      elif err.errno == errorcode.ER_BAD_DB_ERROR:
+        print("Database does not exist")
+      else:
+        print(err)
 
-
-def migrate_db(file):
-    con = open_db(file)
-    cur = con.cursor()
-    cur.execute(
-        '''SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?;''',
-        ("liqudity",
-         ))
-    if cur.fetchone()[0] > 0:
-        print("Migrating liquidity table")
-        cur.execute('''ALTER TABLE liqudity RENAME TO liquidity;''')
-    con.commit()
-    con.close()
 
 
 def init_db(file):
-    migrate_db(file)
     con = open_db(file)
     cur = con.cursor()
-    cur.execute('''PRAGMA foreign_keys = ON;''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS state
-        (id INTEGER PRIMARY KEY, wallet_address VARCHAR(255), timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+        (id INTEGER PRIMARY KEY AUTO_INCREMENT , wallet_address VARCHAR(255), timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS token
-        (id INTEGER PRIMARY KEY, address VARCHAR(255) UNIQUE, name VARCHAR(255), symbol VARCHAR(20));''')
+        (id INTEGER PRIMARY KEY AUTO_INCREMENT, address VARCHAR(255) UNIQUE, name VARCHAR(255), symbol VARCHAR(20));
+        ''')
     cur.execute('''
-        INSERT OR IGNORE INTO token (id, address, name, symbol) VALUES(1,'0x0000000000000000000000000000000000000000', 'xDAI', 'xDAI')
+        INSERT IGNORE INTO token (id, address, name, symbol) VALUES(1,'0x0000000000000000000000000000000000000000', 'xDAI', 'xDAI')
         ''')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS wallet
@@ -79,14 +76,14 @@ def insert_token(file, address, name, symbol):
     con = open_db(file)
     cur = con.cursor()
     cur.execute(
-        'INSERT INTO token (address,name,symbol) values(?,?,?) ON CONFLICT(address) DO UPDATE SET name=excluded.name, symbol=excluded.symbol;',
+        'INSERT INTO token (address,name,symbol) values(%s,%s,%s) ON DUPLICATE KEY UPDATE name=VALUES(name), symbol=VALUES(symbol);',
         (address,
          name,
          symbol,
          ))
     con.commit()
     rowId = None
-    for row in cur.execute('SELECT id FROM token where address = ?',
+    for row in cur.execute('SELECT id FROM token where address = %s',
                            (address, )):
         rowId = row[0]
     con.close()
@@ -96,7 +93,7 @@ def insert_token(file, address, name, symbol):
 def insert_liquidity_token(file, address):
     con = open_db(file)
     cur = con.cursor()
-    cur.execute('INSERT OR IGNORE INTO liquidity_token (address) values(?);',
+    cur.execute('INSERT IGNORE INTO liquidity_token (address) values(%s);',
                 (address,))
     con.commit()
     con.close()
@@ -105,7 +102,7 @@ def insert_liquidity_token(file, address):
 def fetch_db(file, wallet, exchanges):
     con = open_db(file)
     cur = con.cursor()
-    cur.execute('INSERT INTO state(wallet_address) VALUES (?)', (wallet,))
+    cur.execute('INSERT INTO state(wallet_address) VALUES (%s)', (wallet,))
     rowid = cur.lastrowid
     con.commit()
     con.close()
@@ -123,11 +120,11 @@ def insert_tokens(file, state, wallet, exchange):
     con = open_db(file)
     cur = con.cursor()
     cur.execute(
-        'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (?,1,?,18,1.0)',
+        'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (%s,1,%s,18,1.0)',
         (state,
          coin))
     cur.executemany(
-        'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (?,?,?,?,?)',
+        'INSERT INTO wallet(state_id,token_id, balance, decimals, price) VALUES (%s,%s,%s,%s,%s)',
         rows)
     con.commit()
     con.close()
@@ -140,7 +137,7 @@ def insert_liquidity(file, state, wallet, exchange):
     con = open_db(file)
     cur = con.cursor()
     cur.executemany(
-        'INSERT INTO liquidity(state_id,token0_id,token1_id, balance, price) VALUES (?,?,?,?,?)',
+        'INSERT INTO liquidity(state_id,token0_id,token1_id, balance, price) VALUES (%s,%s,%s,%s,%s)',
         rows)
     con.commit()
     con.close()
@@ -150,7 +147,7 @@ def get_last_state_id(file, wallet):
     con = open_db(file)
     cur = con.cursor()
     for row in cur.execute(
-        'SELECT id FROM state WHERE wallet_address = ? ORDER BY id DESC LIMIT 1;',
+        'SELECT id FROM state WHERE wallet_address = %s ORDER BY id DESC LIMIT 1;',
         (wallet,
          )):
         return row[0]
@@ -162,7 +159,7 @@ def get_previous_state_id(file, state):
     con = open_db(file)
     cur = con.cursor()
     for row in cur.execute(
-        'SELECT s1.id FROM state s1 INNER JOIN state s2 ON s1.wallet_address = s2.wallet_address WHERE s2.id = ?  AND s1.id < s2.id ORDER BY s1.id DESC LIMIT 1;',
+        'SELECT s1.id FROM state s1 INNER JOIN state s2 ON s1.wallet_address = s2.wallet_address WHERE s2.id = %s  AND s1.id < s2.id ORDER BY s1.id DESC LIMIT 1;',
         (state,
          )):
         return row[0]
@@ -174,7 +171,7 @@ def get_state_id(file, state):
     con = open_db(file)
     cur = con.cursor()
     for row in cur.execute(
-        'SELECT id, wallet_address, timestamp FROM state WHERE id = ? ORDER BY id DESC LIMIT 1;',
+        'SELECT id, wallet_address, timestamp FROM state WHERE id = %s ORDER BY id DESC LIMIT 1;',
         (state,
          )):
         return (row[0], row[1], row[2])
@@ -192,7 +189,7 @@ def print_token_state(file, state, compare=None):
     contents = {}
 
     for row in cur.execute(
-        "SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ? AND token.address NOT IN (SELECT * FROM liquidity_token);",
+        "SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = %s AND token.address NOT IN (SELECT * FROM liquidity_token);",
         (state,
          )):
         balance = int(row[2]) / pow(10, row[3])
@@ -203,7 +200,7 @@ def print_token_state(file, state, compare=None):
     if compare is not None:
 
         for row in cur.execute(
-            "SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = ? AND token.address NOT IN (SELECT * FROM liquidity_token);",
+            "SELECT token.name as name, token.symbol as symbol, wallet.balance, wallet.decimals, wallet.price, token.id FROM wallet INNER JOIN token ON wallet.token_id = token.id WHERE wallet.state_id = %s AND token.address NOT IN (SELECT * FROM liquidity_token);",
             (compare,
              )):
             balance = int(row[2]) / pow(10, row[3])
@@ -244,7 +241,7 @@ def print_liquidity_state(file, state, compare=None):
     old_total = 0.0
     contents = {}
     for row in cur.execute(
-        "SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liquidity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;",
+        "SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liquidity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = %s;",
         (state,
          )):
         total_val += row[3]
@@ -252,7 +249,7 @@ def print_liquidity_state(file, state, compare=None):
             "{}-{}".format(row[0], row[1]), row[2], row[3]]
     if compare is not None:
         for row in cur.execute(
-            "SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liquidity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = ?;",
+            "SELECT t0.symbol,  t1.symbol, l.balance, l.price, l.token0_id, l.token1_id FROM (liquidity l INNER JOIN token t0 ON l.token0_id = t0.id) INNER JOIN token t1 ON l.token1_id = t1.id  WHERE l.state_id = %s;",
             (compare,
              )):
             old_total += row[3]
@@ -312,7 +309,7 @@ def list_states(file, wallet):
         res = cur.execute("SELECT * FROM state")
     else:
         res = cur.execute(
-            "SELECT * FROM state WHERE wallet_address = ?", (wallet,))
+            "SELECT * FROM state WHERE wallet_address = %s", (wallet,))
     table = from_db_cursor(res)
     print(table)
     con.close()
@@ -322,7 +319,7 @@ def drop_state(file, state):
     con = open_db(file)
     cur = con.cursor()
     cur.execute('''PRAGMA foreign_keys = ON;''')
-    cur.execute('DELETE FROM state WHERE id = ?', (state,))
+    cur.execute('DELETE FROM state WHERE id = %s', (state,))
     con.commit()
     con.close()
 
@@ -332,7 +329,7 @@ def drop_states_by_time(file, time_clause):
     cur = con.cursor()
     cur.execute('''PRAGMA foreign_keys = ON;''')
     cur.execute(
-        'DELETE FROM state WHERE id NOT IN (SELECT id FROM state GROUP BY wallet_address, strftime(?,timestamp) HAVING MAX(timestamp) ORDER BY id)',
+        'DELETE FROM state WHERE id NOT IN (SELECT id FROM state GROUP BY wallet_address, strftime(%s,timestamp) HAVING MAX(timestamp) ORDER BY id)',
         (time_clause,
          ))
     con.commit()
@@ -489,7 +486,7 @@ def fetch_token_prices(exchange_url, token_addresses):
 
 
 def fetch_coin(wallet, state_id):
-    endpoint = "?module=account&action=balance&address={}".format(wallet)
+    endpoint = "%smodule=account&action=balance&address={}".format(wallet)
     url = "{}{}".format(blockscout_url, endpoint)
     coin_response = requests.get(url)
     if(coin_response.ok):
@@ -502,7 +499,7 @@ def fetch_coin(wallet, state_id):
 
 
 def fetch_tokens(db, wallet, state_id, exchange):
-    endpoint = "?module=account&action=tokenlist&address={}".format(
+    endpoint = "%smodule=account&action=tokenlist&address={}".format(
         format_wallet_address(wallet))
     url = "{}{}".format(blockscout_url, endpoint)
     token_response = requests.get(url)
