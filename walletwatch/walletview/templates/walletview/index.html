@@ -1,0 +1,9 @@
+{% if user_wallets %}
+  <ul>
+  {% for wallet in user_wallets %}
+  <li><a href="{% url 'wallet' wallet.id %}">{{ wallet.name }} ({{ wallet.address }})</a></li>
+  {% endfor %}
+  </ul>
+{% else %}
+    <p>No wallets are available.</p>
+{% endif %}

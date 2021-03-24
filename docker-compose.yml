@@ -6,13 +6,18 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     restart: always
+    container_name: mysql
+    hostname: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - 3306:3306
     environment:
+      MYSQL_HOST: 127.0.0.1
       MYSQL_ROOT_PASSWORD: pwxdaiwallet
       MYSQL_DATABASE: xdaiwallet
       MYSQL_USER: xdaiwallet
       MYSQL_PASSWORD: xdaiwallet
-    ports:
-      - 3306:3306
+
 
 volumes:
   db_data: {}
