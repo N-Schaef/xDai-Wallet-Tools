@@ -464,9 +464,9 @@ def fetch_token_prices(exchange_url, token_addresses):
     addresses = sep.join(map(lambda t: '\\"' + t + '\\"', token_addresses))
     req_data = """
 {{"query":
-"{{ tokenDayDatas(where: {{token_in: [{tokens}]}},orderBy: date, orderDirection: desc, limit:{limit}) {{priceUSD, date, token {{id}} }}}}", "variables": null
+"{{ tokens(where: {{id_in: [{tokens}]}}){{id,derivedETH}} }}", "variables": null
 }}
-  """.format(tokens=addresses, limit=len(token_addresses))
+  """.format(tokens=addresses)
     req_json = json.loads(req_data)
 
     pair_response = requests.post(exchange_url, json=req_json)
@@ -475,13 +475,13 @@ def fetch_token_prices(exchange_url, token_addresses):
         if "errors" in data:
             print("Error in exchange backend: {}".format(data["errors"]))
             return None
-        token_data = data["data"]["tokenDayDatas"]
+        token_data = data["data"]["tokens"]
         if len(token_data) > 0:
             prices = {}
             for token in token_data:
-                id = token["token"]["id"]
+                id = token["id"]
                 if id not in prices:
-                    prices[id] = float(token["priceUSD"])
+                    prices[id] = float(token["derivedETH"])
             return prices
     else:
         print("Could not get data from {}".format(exchange_url))
