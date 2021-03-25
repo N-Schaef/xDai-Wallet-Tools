@@ -20,8 +20,7 @@ class Exchange(models.Model):
         return "{}".format(self.name)
 
 class Wallet(models.Model):
-    address = models.CharField(max_length=255)
-    name = models.CharField(max_length=255)
+    address = models.CharField(max_length=255,unique=True)
     last_update = models.DateTimeField('last updated')
 
 class WatchWallet:
@@ -30,6 +29,7 @@ class WatchWallet:
         on_delete=models.CASCADE,
     )
   wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
+  name = models.CharField(max_length=255)
 
  
 #    _____                      _ _                   
@@ -79,12 +79,19 @@ class TokenValue(models.Model):
     fetched = models.DateTimeField('fetched')
 
 class LiquidityValue(models.Model):
+    liquidity = models.ForeignKey(LiquidityToken, on_delete=models.CASCADE)
     token = models.ForeignKey(Token, on_delete=models.CASCADE)
     value = models.FloatField(default=0.0)
     fetched = models.DateTimeField('fetched')
 
 class WalletToken(models.Model):
-    liquidity = models.ForeignKey(LiquidityToken, on_delete=models.CASCADE)
+    token = models.ForeignKey(Token, on_delete=models.CASCADE)
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
     balance = models.CharField(max_length=250)
     decimals = models.IntegerField()
+    fetched = models.DateTimeField('fetched')
+
+class WalletBalance(models.Model):
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
+    xdai_balance = models.CharField(max_length=250)
     fetched = models.DateTimeField('fetched')
