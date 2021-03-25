@@ -187,8 +187,11 @@ class WalletLiquidity(models.Model):
     balance = models.FloatField(default=0.0)
     fetched = models.DateTimeField('fetched', auto_now_add=True, blank=True)
 
+    def get_last_value(self):
+        return self.liquidity.liquidityvalue_set.order_by('-fetched').first()
+
     def value(self):
-        s=self.liquidity.liquidityvalue_set.order_by('-fetched').first()
+        s=self.get_last_value()
         if s :
             return s.value(self.balance)
         return 0.0
@@ -203,8 +206,11 @@ class WalletToken(models.Model):
     def balance_calculated(self):
         return int(self.balance) / pow(10, self.decimals)
 
+    def get_last_value(self):
+        return self.token.tokenvalue_set.order_by('-fetched').first()
+
     def value(self):
-        s=self.token.tokenvalue_set.order_by('-fetched').first()
+        s=self.get_last_value()
         if s :
             return s.value(self.balance_calculated())
         return 0.0
