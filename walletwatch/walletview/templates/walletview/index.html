@@ -1,9 +1,27 @@
-{% if user_wallets %}
-  <ul>
-  {% for wallet in user_wallets %}
-  <li><a href="{% url 'wallet' wallet.id %}">{{ wallet.name }} ({{ wallet.address }})</a></li>
-  {% endfor %}
-  </ul>
-{% else %}
-    <p>No wallets are available.</p>
-{% endif %}
+{% extends 'base.html' %}
+
+{% block title %}Wallets{% endblock %}
+
+{% block content %}
+  {% if wallets %}
+    <ul class="w3-ul">
+    {% for wallet in wallets %}
+    <a href="{% url 'wallet' wallet.id %}">
+      <li class="w3-card-4 w3-margin-bottom"> 
+        <div class="w3-row">
+          <div class="w3-threequarter">
+          {{ wallet.name }} ({{ wallet.wallet.address }})
+          </div>
+          <div class="w3-rest">
+            {{ wallet.wallet.value_human }}
+          </div>
+        </div>
+      </li>
+      </a>
+    {% endfor %}
+    </ul>
+  {% else %}
+      <p>No wallets are available.</p>
+  {% endif %}
+{% endblock %}
+

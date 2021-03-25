@@ -56,6 +56,9 @@ class Wallet(models.Model):
             value += WalletToken.objects.get(pk=token['id__max']).value()
         return value
 
+    def value_human(self):
+        return format_money(self.value())
+
     def update(self):
         self.update_balance()
         self.update_tokens()
@@ -89,7 +92,7 @@ class Wallet(models.Model):
                 token=token_obj, balance=token['balance'], decimals=int(token['decimals']))
 
 
-class WatchWallet:
+class WatchWallet(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

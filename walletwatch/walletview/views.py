@@ -1,19 +1,36 @@
+from django.views import generic
 from django import template
 from django.http import HttpResponse
 from django.http.response import Http404
 from django.shortcuts import get_object_or_404, render
-from .models import Wallet
+from django.contrib.auth.decorators import login_required
+from .models import Wallet, WatchWallet
 # Create your views here.
 
 def home(request):
     return render(request, 'home.html')
 
-def index(request):
+
+class IndexView(generic.ListView):
+    template_name = 'walletview/index.html'
+    context_object_name = 'wallets'
+
+    def get_queryset(self):
+        """Return all wallets watched by the user"""
+        wallets=WatchWallet.objects.prefetch_related('wallet').filter(user=self.request.user)
+        return wallets
+
+
+@login_required
+def wallets(request):
     user_wallets = Wallet.objects.all()
     context = {
         'user_wallets': user_wallets,
     }
     return render(request, 'walletview/index.html', context)
+
+
+
 
 def tokens(request, token_id):
     response = "You're looking at the token %s."
