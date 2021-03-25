@@ -130,7 +130,7 @@ class WatchWallet(models.Model):
 class Token(models.Model):
     address = models.CharField(max_length=255, unique=True)
     name = models.CharField(max_length=255)
-    symbol = models.CharField(max_length=20)
+    symbol = models.CharField(max_length=255)
     liquidity = models.BooleanField(default=False)
 
     def __str__(self):
