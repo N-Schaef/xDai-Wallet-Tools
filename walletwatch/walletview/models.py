@@ -91,10 +91,13 @@ class WalletToken(models.Model):
     decimals = models.IntegerField()
     fetched = models.DateTimeField('fetched',auto_now_add=True, blank=True)
 
-
+    def balance_calculated(self):
+        return int(self.balance) / pow(10, self.decimals)
 
 class WalletBalance(models.Model):
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
     xdai_balance = models.CharField(max_length=250)
     fetched = models.DateTimeField('fetched',auto_now_add=True, blank=True)
 
+    def xdai(self):
+        return int(self.xdai_balance) / pow(10, settings.BLOCKSCOUT_XDAI_BALANCE_DECIMALS)
