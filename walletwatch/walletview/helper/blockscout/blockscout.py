@@ -28,9 +28,8 @@ def fetch_wallet_balance(address):
     balance_response = requests.get(url)
     if(balance_response.ok):
         balance_data = balance_response.json()
-        balances = balance_data["result"]
-        for balance in balances:
-            return balance["balance"]
+        return balance_data["result"]
+        
 
 
 def fetch_tokens(address):

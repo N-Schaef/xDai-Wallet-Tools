@@ -13,8 +13,8 @@ class Command(BaseCommand):
     help = 'Fetches a new state'
 
     def handle(self, *args, **options):
-        self.fetch_wallet_balance()
-        self.fetch_token_balance()
+        #self.fetch_wallet_balance()
+        self.update_wallet()
 
     def fetch_wallet_balance(self):
         wallets = Wallet.objects.filter(verified=True)
@@ -34,5 +34,9 @@ class Command(BaseCommand):
         wallets = Wallet.objects.filter(verified=True)
         for wallet in wallets:
             wallet.update_tokens()
-            wallet.set_updated()
+
+    def update_wallet(self):
+        wallets = Wallet.objects.filter(verified=True)
+        for wallet in wallets:
+            wallet.update()
 

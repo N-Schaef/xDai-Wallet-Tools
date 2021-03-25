@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils.timezone import make_aware
 import requests
-from .helper import blockscout
+from .helper import blockscout, uniswap
 from datetime import datetime
 
 
@@ -14,6 +14,7 @@ def format_money(val):
 
 def format_balance(val):
     return "{:.3g}".format(val)
+
 
 #     _____             __ _
 #    / ____|           / _(_)
@@ -46,6 +47,7 @@ class Wallet(models.Model):
     def update(self):
         self.update_balance()
         self.update_tokens()
+        self.update_liquidities()
         self.set_updated()
 
     def set_updated(self):
@@ -55,6 +57,15 @@ class Wallet(models.Model):
     def update_balance(self):
         balance = blockscout.fetch_wallet_balance(self.address)
         self.walletbalance_set.create(xdai_balance=balance)
+
+    def update_liquidities(self):
+        for exchange in Exchange.objects.all():
+            liquidities = uniswap.fetch_liquidities(exchange.api, self.address)
+            for l in liquidities:
+                liquidity = LiquidityToken.ensure(l, exchange)
+                if liquidity:
+                    liquidity.liquidityvalue_set.create(price=l['price'])
+                    liquidity.walletliquidity_set.create(wallet=self,balance=l['balance'])
 
     def update_tokens(self):
         tokens = blockscout.fetch_tokens(self.address)
@@ -109,6 +120,24 @@ class LiquidityToken(models.Model):
     def __str__(self):
         return "{}-{} ({})".format(self.token0.symbol, self.token1.symbol, self.exchange)
 
+    @staticmethod
+    def ensure(liquidity, exchange):
+        try:
+            token = Token.objects.get(address=liquidity['address'])
+        except Token.DoesNotExist:
+            return None
+
+        token.liquidity = True
+        token.save()
+        t0 = liquidity['token0']
+        t1 = liquidity['token1']
+        (token0, _) = Token.objects.get_or_create(
+            address=t0['id'], name=t0['name'], symbol=t0['symbol'])
+        (token1, _) = Token.objects.get_or_create(
+            address=t1['id'], name=t1['name'], symbol=t1['symbol'])
+        (l,_) = LiquidityToken.objects.get_or_create(token=token, token0=token0, token1=token1, exchange=exchange)
+        return l
+
 
 #     _____ _        _
 #    / ____| |      | |
@@ -127,8 +156,14 @@ class TokenValue(models.Model):
 
 class LiquidityValue(models.Model):
     liquidity = models.ForeignKey(LiquidityToken, on_delete=models.CASCADE)
-    token = models.ForeignKey(Token, on_delete=models.CASCADE)
-    value = models.FloatField(default=0.0)
+    price = models.FloatField(default=0.0)
+    fetched = models.DateTimeField('fetched', auto_now_add=True, blank=True)
+
+
+class WalletLiquidity(models.Model):
+    liquidity = models.ForeignKey(LiquidityToken, on_delete=models.CASCADE)
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
+    balance = models.FloatField(default=0.0)
     fetched = models.DateTimeField('fetched', auto_now_add=True, blank=True)
 
 
