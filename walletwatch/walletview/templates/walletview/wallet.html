@@ -1,0 +1,59 @@
+<!-- templates/home.html -->
+{% extends 'base.html' %}
+
+{% block title %}Wallet {{wallet.address}}{% endblock %}
+
+{% block content %}
+  <div class="w3-card-4">
+    <header class="w3-container w3-blue">
+      <h4>{{wallet.address}}</h4>
+    </header>
+      <div class="w3-container">
+      <h4>xDai: {{wallet.get_balance.xdai_human}}</h4>
+      </div
+      <!-- Tokens -->
+      <div class="w3-container">
+      <h4>Tokens</h4>
+       <table class="w3-table"> 
+        <tr>
+          <th>Name</th>
+          <th>Balance</th>
+          <th>Value</th>
+        </tr>
+        {% for token in wallet.get_tokens %}
+          {% if not token.token.liquidity and not token.balance_calculated == 0.0 %}
+            <tr>
+            <td>{{token.token.name}} ({{token.token.symbol}})</td>
+            <td>{{token.balance_human}}</td>
+            <td>{{token.value_human}}</td>
+           </tr>      
+          {% endif %}  
+        {% endfor %}
+        </table>
+      </div>
+
+      <!-- Liquidity -->
+      <div class="w3-container">
+      <h4>Liquidities</h4>
+       <table class="w3-table"> 
+        <tr>
+          <th>Pair</th>
+          <th>Balance</th>
+          <th>Value</th>
+          <th>Exchange</th>
+        </tr>
+        {% for liquidity in wallet.get_liquidities %}
+          {% if not liquidity.balance == 0.0 %}
+            <tr>
+            <td>{{liquidity.liquidity.pair}}</td>
+            <td>{{liquidity.balance_human}}</td>
+            <td>{{liquidity.value_human}}</td>
+            <td>{{liquidity.liquidity.exchange.name}}</td>
+           </tr>      
+          {% endif %}  
+        {% endfor %}
+        </table>
+      </div>
+
+  </div>
+{% endblock %}

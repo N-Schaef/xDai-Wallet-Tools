@@ -14,7 +14,9 @@ def format_money(val):
 
 
 def format_balance(val):
-    return "{:.3g}".format(val)
+    if val < 1.0:
+        return "{:.3g}".format(val)
+    return "{:.2f}".format(val)
 
 
 #     _____             __ _
@@ -48,12 +50,23 @@ class Wallet(models.Model):
     def __str__(self):
         return "{} ({})".format(self.address,self.value())
 
+    def get_balance(self):
+        return self.walletbalance_set.order_by('-id').first()
+
+    def get_tokens(self):
+        ids=self.wallettoken_set.values('token','wallet').annotate(Max('id'))
+        return [WalletToken.objects.get(pk=i['id__max']) for i in ids]
+
+    def get_liquidities(self):
+        ids=self.walletliquidity_set.values('liquidity','wallet').annotate(Max('id'))
+        return [WalletLiquidity.objects.get(pk=i['id__max']) for i in ids]
+
     def value(self):
         value = 0.0
-        for token in self.walletliquidity_set.values('liquidity','wallet').annotate(Max('id')):
-            value += WalletLiquidity.objects.get(pk=token['id__max']).value()
-        for token in self.wallettoken_set.values('token','wallet').annotate(Max('id')):
-            value += WalletToken.objects.get(pk=token['id__max']).value()
+        for token in self.get_tokens():
+            value += token.value()
+        for liquidity in self.get_liquidities():
+            value += liquidity.value()
         return value
 
     def value_human(self):
@@ -136,6 +149,9 @@ class LiquidityToken(models.Model):
     def __str__(self):
         return "{}-{} ({})".format(self.token0.symbol, self.token1.symbol, self.exchange)
 
+    def pair(self):
+        return "{}-{}".format(self.token0.symbol, self.token1.symbol)
+
     @staticmethod
     def ensure(liquidity, exchange):
         try:
@@ -198,6 +214,12 @@ class WalletLiquidity(models.Model):
         if s :
             return s.value(self.balance)
         return 0.0
+    
+    def balance_human(self):
+        return format_balance(self.balance)
+
+    def value_human(self):
+        return format_money(self.value())
 
 class WalletToken(models.Model):
     token = models.ForeignKey(Token, on_delete=models.CASCADE)
@@ -209,6 +231,9 @@ class WalletToken(models.Model):
     def balance_calculated(self):
         return int(self.balance) / pow(10, self.decimals)
 
+    def balance_human(self):
+        return format_balance(self.balance_calculated())
+
     def get_last_value(self):
         return self.token.tokenvalue_set.order_by('-fetched').first()
 
@@ -217,6 +242,9 @@ class WalletToken(models.Model):
         if s :
             return s.value(self.balance_calculated())
         return 0.0
+
+    def value_human(self):
+        return format_money(self.value())
 
 
 class WalletBalance(models.Model):
@@ -230,5 +258,11 @@ class WalletBalance(models.Model):
     def xdai(self):
         return int(self.xdai_balance) / pow(10, settings.BLOCKSCOUT_XDAI_BALANCE_DECIMALS)
 
+    def xdai_human(self):
+        return format_balance(self.xdai())
+
     def value(self):
         return self.xdai_balance
+
+    def value_human(self):
+        return format_money(self.value())
