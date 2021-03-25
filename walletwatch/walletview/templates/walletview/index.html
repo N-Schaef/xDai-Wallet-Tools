@@ -4,6 +4,9 @@
 
 {% block content %}
   {% if wallets %}
+    <div class="w3-panel w3-blue w3-right-align">
+    <h5>Total: {{total}}</h5>
+    </div> 
     <ul class="w3-ul">
     {% for wallet in wallets %}
     <a href="{% url 'wallet' wallet.wallet.id %}">
@@ -20,6 +23,7 @@
       </a>
     {% endfor %}
     </ul>
+
   {% else %}
       <p>No wallets are available.</p>
   {% endif %}
