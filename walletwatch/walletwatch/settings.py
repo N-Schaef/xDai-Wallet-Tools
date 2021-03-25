@@ -118,7 +118,7 @@ USE_L10N = True
 
 USE_TZ = True
 
-
+# Auth system
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
 
@@ -126,6 +126,8 @@ LOGOUT_REDIRECT_URL = 'home'
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+# xDai Configs
 
 BLOCKSCOUT_URL = 'https://blockscout.com/xdai/mainnet/api' 
 BLOCKSCOUT_SINGLE_BALANCE_ENDPOINT='?module=account&action=balance&address='

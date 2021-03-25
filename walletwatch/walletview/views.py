@@ -4,6 +4,10 @@ from django.http.response import Http404
 from django.shortcuts import get_object_or_404, render
 from .models import Wallet
 # Create your views here.
+
+def home(request):
+    return render(request, 'home.html')
+
 def index(request):
     user_wallets = Wallet.objects.all()
     context = {
