@@ -56,17 +56,21 @@ class WatchWallet:
  
 
 class Token(models.Model):
-    address = models.CharField(max_length=255)
+    address = models.CharField(max_length=255,unique=True)
     name = models.CharField(max_length=255)
     symbol = models.CharField(max_length=20)
     liquidity = models.BooleanField(default=False)
 
     def __str__(self):
-        return "{}-{} ({})".format(self.symbol,self.name,self.address)
+        return "{} {} ({})".format(self.symbol,self.name,self.address)
 
 
 class LiquidityToken(models.Model):
-    token = models.ForeignKey(Token, on_delete=models.CASCADE, related_name='liquidity_token')
+    token = models.OneToOneField(
+        Token,
+        on_delete=models.CASCADE,
+        primary_key=True,
+    )
     token0 = models.ForeignKey(Token, on_delete=models.CASCADE, related_name='pair_token0')
     token1 = models.ForeignKey(Token, on_delete=models.CASCADE, related_name='pair_token1')
     exchange = models.ForeignKey(Exchange, on_delete=models.CASCADE)
