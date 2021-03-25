@@ -9,7 +9,7 @@
       <h4>{{wallet.address}}</h4>
     </header>
       <div class="w3-container">
-      <h4>xDai: {{wallet.get_balance.xdai_human}}</h4>
+      
       </div
       <!-- Tokens -->
       <div class="w3-container">
@@ -57,7 +57,14 @@
 
 
     <footer class="w3-container w3-blue">
+    <div class="w3-row">
+    <div class="w3-half">
+    <h5>xDai: {{wallet.get_balance.xdai_human}}</h5>
+    </div>
+    <div class="w3-half w3-right-align">
     <h5>Total: {{wallet.value_human}}</h5>
+    </div>
+    </div>
     </footer
   </div>
 {% endblock %}
