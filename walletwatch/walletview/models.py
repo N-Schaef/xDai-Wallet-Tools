@@ -21,7 +21,7 @@ class Exchange(models.Model):
 
 class Wallet(models.Model):
     address = models.CharField(max_length=255,unique=True)
-    last_update = models.DateTimeField('last updated')
+    last_update = models.DateTimeField('last updated',auto_now_add=True, blank=True)
 
 class WatchWallet:
   user = models.ForeignKey(
@@ -76,22 +76,25 @@ class TokenValue(models.Model):
     token = models.ForeignKey(Token, on_delete=models.CASCADE)
     exchange = models.ForeignKey(Exchange, on_delete=models.CASCADE)
     price = models.FloatField(default=0.0)
-    fetched = models.DateTimeField('fetched')
+    fetched = models.DateTimeField('fetched',auto_now_add=True, blank=True)
 
 class LiquidityValue(models.Model):
     liquidity = models.ForeignKey(LiquidityToken, on_delete=models.CASCADE)
     token = models.ForeignKey(Token, on_delete=models.CASCADE)
     value = models.FloatField(default=0.0)
-    fetched = models.DateTimeField('fetched')
+    fetched = models.DateTimeField('fetched',auto_now_add=True, blank=True)
 
 class WalletToken(models.Model):
     token = models.ForeignKey(Token, on_delete=models.CASCADE)
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
     balance = models.CharField(max_length=250)
     decimals = models.IntegerField()
-    fetched = models.DateTimeField('fetched')
+    fetched = models.DateTimeField('fetched',auto_now_add=True, blank=True)
+
+
 
 class WalletBalance(models.Model):
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
     xdai_balance = models.CharField(max_length=250)
-    fetched = models.DateTimeField('fetched')
+    fetched = models.DateTimeField('fetched',auto_now_add=True, blank=True)
+
