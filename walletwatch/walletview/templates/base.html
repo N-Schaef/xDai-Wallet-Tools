@@ -1,0 +1,17 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}WalletWatch{% endblock %}</title>
+</head>
+<body>
+{% if user.is_authenticated %}
+  <p><a href="{% url 'logout' %}">Log Out</a></p>
+{% endif %}
+  <main>
+    {% block content %}
+    {% endblock %}
+  </main>
+</body>
+</html>
