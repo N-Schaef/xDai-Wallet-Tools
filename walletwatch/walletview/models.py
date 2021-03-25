@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.db.models import Max
 from django.utils.timezone import make_aware
 import requests
 from .helper import blockscout, uniswap
@@ -42,7 +43,13 @@ class Wallet(models.Model):
         'last updated', auto_now_add=True, blank=True)
 
     def __str__(self):
-        return "{}".format(self.address)
+        return "{} ({})".format(self.address,self.value())
+
+    def value(self):
+        value = 0.0
+        for token in self.walletliquidity_set.values('liquidity','wallet').annotate(Max('id')):
+            value += WalletLiquidity.objects.get(pk=token['id__max']).value()
+        return value
 
     def update(self):
         self.update_balance()
@@ -65,7 +72,8 @@ class Wallet(models.Model):
                 liquidity = LiquidityToken.ensure(l, exchange)
                 if liquidity:
                     liquidity.liquidityvalue_set.create(price=l['price'])
-                    liquidity.walletliquidity_set.create(wallet=self,balance=l['balance'])
+                    liquidity.walletliquidity_set.create(
+                        wallet=self, balance=l['balance'])
 
     def update_tokens(self):
         tokens = blockscout.fetch_tokens(self.address)
@@ -135,7 +143,8 @@ class LiquidityToken(models.Model):
             address=t0['id'], name=t0['name'], symbol=t0['symbol'])
         (token1, _) = Token.objects.get_or_create(
             address=t1['id'], name=t1['name'], symbol=t1['symbol'])
-        (l,_) = LiquidityToken.objects.get_or_create(token=token, token0=token0, token1=token1, exchange=exchange)
+        (l, _) = LiquidityToken.objects.get_or_create(
+            token=token, token0=token0, token1=token1, exchange=exchange)
         return l
 
 
@@ -147,17 +156,24 @@ class LiquidityToken(models.Model):
 #   |_____/ \__\__,_|\__|\__,_|___/
 
 
+
 class TokenValue(models.Model):
     token = models.ForeignKey(Token, on_delete=models.CASCADE)
     exchange = models.ForeignKey(Exchange, on_delete=models.CASCADE)
     price = models.FloatField(default=0.0)
     fetched = models.DateTimeField('fetched', auto_now_add=True, blank=True)
 
+    def value(self, balance):
+        return balance*self.price
+
 
 class LiquidityValue(models.Model):
     liquidity = models.ForeignKey(LiquidityToken, on_delete=models.CASCADE)
     price = models.FloatField(default=0.0)
     fetched = models.DateTimeField('fetched', auto_now_add=True, blank=True)
+
+    def value(self, balance):
+        return balance*self.price
 
 
 class WalletLiquidity(models.Model):
@@ -166,6 +182,11 @@ class WalletLiquidity(models.Model):
     balance = models.FloatField(default=0.0)
     fetched = models.DateTimeField('fetched', auto_now_add=True, blank=True)
 
+    def value(self):
+        value = self.liquidity.liquidityvalue_set.order_by('-fetched')[0]
+        if value:
+            return value.value(self.balance)
+        return 0.0
 
 class WalletToken(models.Model):
     token = models.ForeignKey(Token, on_delete=models.CASCADE)
@@ -176,6 +197,12 @@ class WalletToken(models.Model):
 
     def balance_calculated(self):
         return int(self.balance) / pow(10, self.decimals)
+
+    def value(self):
+        s=self.token.tokenvalue_set.order_by('-fetched').first()
+        if s :
+            return s.value(self.balance_calculated())
+        return 0.0
 
 
 class WalletBalance(models.Model):
@@ -188,3 +215,6 @@ class WalletBalance(models.Model):
 
     def xdai(self):
         return int(self.xdai_balance) / pow(10, settings.BLOCKSCOUT_XDAI_BALANCE_DECIMALS)
+
+    def value(self):
+        return self.xdai_balance
