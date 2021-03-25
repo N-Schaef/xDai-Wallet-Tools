@@ -63,6 +63,9 @@ class Wallet(models.Model):
 
     def value(self):
         value = 0.0
+        balance = self.get_balance()
+        if balance:
+            value += balance.value()
         for token in self.get_tokens():
             value += token.value()
         for liquidity in self.get_liquidities():
@@ -262,7 +265,7 @@ class WalletBalance(models.Model):
         return format_balance(self.xdai())
 
     def value(self):
-        return self.xdai_balance
+        return self.xdai()
 
     def value_human(self):
         return format_money(self.value())
