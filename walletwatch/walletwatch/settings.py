@@ -123,3 +123,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+BLOCKSCOUT_URL = 'https://blockscout.com/xdai/mainnet/api' 
+BLOCKSCOUT_SINGLE_BALANCE_ENDPOINT='?module=account&action=balance&address='
+BLOCKSCOUT_MULTIPLE_BALANCE_ENDPOINT='?module=account&action=balancemulti&address='
+BLOCKSCOUT_XDAI_BALANCE_DECIMALS = 18

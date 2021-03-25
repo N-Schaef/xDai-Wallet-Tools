@@ -2,6 +2,16 @@ from django.db import models
 from django.conf import settings
 
  
+
+def format_money(val):
+    if val < 1.0:
+        return "{:.3g} $".format(val)
+    return "{:.2f} $".format(val)
+
+
+def format_balance(val):
+    return "{:.3g}".format(val)
+
 #     _____             __ _       
 #    / ____|           / _(_)      
 #   | |     ___  _ __ | |_ _  __ _ 
@@ -23,6 +33,8 @@ class Wallet(models.Model):
     address = models.CharField(max_length=255,unique=True)
     verified = models.BooleanField(default=False)
     last_update = models.DateTimeField('last updated',auto_now_add=True, blank=True)
+    def __str__(self):
+        return "{}".format(self.address)
 
 class WatchWallet:
   user = models.ForeignKey(
@@ -99,6 +111,9 @@ class WalletBalance(models.Model):
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
     xdai_balance = models.CharField(max_length=250)
     fetched = models.DateTimeField('fetched',auto_now_add=True, blank=True)
+
+    def __str__(self):
+        return "{} ({})".format(format_balance(self.xdai()),self.fetched)
 
     def xdai(self):
         return int(self.xdai_balance) / pow(10, settings.BLOCKSCOUT_XDAI_BALANCE_DECIMALS)
