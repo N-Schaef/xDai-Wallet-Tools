@@ -6,7 +6,7 @@
   {% if wallets %}
     <ul class="w3-ul">
     {% for wallet in wallets %}
-    <a href="{% url 'wallet' wallet.id %}">
+    <a href="{% url 'wallet' wallet.wallet.id %}">
       <li class="w3-card-4 w3-margin-bottom"> 
         <div class="w3-row">
           <div class="w3-threequarter">
