@@ -21,6 +21,7 @@ class Exchange(models.Model):
 
 class Wallet(models.Model):
     address = models.CharField(max_length=255,unique=True)
+    verified = models.BooleanField(default=False)
     last_update = models.DateTimeField('last updated',auto_now_add=True, blank=True)
 
 class WatchWallet:
