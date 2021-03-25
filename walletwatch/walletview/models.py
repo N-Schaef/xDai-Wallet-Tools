@@ -35,6 +35,9 @@ class Exchange(models.Model):
     def __str__(self):
         return "{}".format(self.name)
 
+    def update_tokens(self):
+        Token.objects.all()
+
 
 class Wallet(models.Model):
     address = models.CharField(max_length=255, unique=True)
@@ -49,6 +52,8 @@ class Wallet(models.Model):
         value = 0.0
         for token in self.walletliquidity_set.values('liquidity','wallet').annotate(Max('id')):
             value += WalletLiquidity.objects.get(pk=token['id__max']).value()
+        for token in self.wallettoken_set.values('token','wallet').annotate(Max('id')):
+            value += WalletToken.objects.get(pk=token['id__max']).value()
         return value
 
     def update(self):
@@ -183,9 +188,9 @@ class WalletLiquidity(models.Model):
     fetched = models.DateTimeField('fetched', auto_now_add=True, blank=True)
 
     def value(self):
-        value = self.liquidity.liquidityvalue_set.order_by('-fetched')[0]
-        if value:
-            return value.value(self.balance)
+        s=self.liquidity.liquidityvalue_set.order_by('-fetched').first()
+        if s :
+            return s.value(self.balance)
         return 0.0
 
 class WalletToken(models.Model):

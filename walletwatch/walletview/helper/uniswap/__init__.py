@@ -1,1 +1,1 @@
-from .uniswap import update_liquidities, fetch_liquidities
+from .uniswap import update_liquidities, fetch_liquidities, fetch_token_prices

@@ -1,7 +1,7 @@
-from walletview.models import Wallet, Token, TokenValue
+from walletview.models import Wallet, Token, TokenValue, Exchange
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-from walletview.helper import blockscout
+from walletview.helper import blockscout, uniswap
 import requests
 
 
@@ -15,6 +15,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         #self.fetch_wallet_balance()
         self.update_wallet()
+        self.fetch_token_price()
 
     def fetch_wallet_balance(self):
         wallets = Wallet.objects.filter(verified=True)
@@ -34,6 +35,17 @@ class Command(BaseCommand):
         wallets = Wallet.objects.filter(verified=True)
         for wallet in wallets:
             wallet.update_tokens()
+
+    def fetch_token_price(self):
+        exchanges = Exchange.objects.all()
+        tokens = Token.objects.all()
+        addresses = list(map(wallet_to_address,tokens))
+        for exchange in exchanges:
+            prices = uniswap.fetch_token_prices(exchange.api,addresses)
+            for token in tokens:
+                if token.address in prices:
+                    token.tokenvalue_set.create(exchange=exchange,price=prices[token.address])
+
 
     def update_wallet(self):
         wallets = Wallet.objects.filter(verified=True)

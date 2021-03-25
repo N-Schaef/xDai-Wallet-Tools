@@ -59,3 +59,31 @@ def update_liquidities(exchange_api,tokens):
             }
             ret.append(l)
         return ret
+
+def fetch_token_prices(exchange_api, tokens):
+    sep = ','
+    addresses = sep.join(map(lambda t: '\\"' + t + '\\"', tokens))
+    req_data = """
+{{"query":
+"{{ tokens(where: {{id_in: [{tokens}]}}){{id,derivedETH}} }}", "variables": null
+}}
+  """.format(tokens=addresses)
+    req_json = json.loads(req_data)
+
+    pair_response = requests.post(exchange_api, json=req_json)
+    if(pair_response.ok):
+        data = json.loads(pair_response.content)
+        if "errors" in data:
+            print("Error in exchange backend: {}".format(data["errors"]))
+            return []
+        token_data = data["data"]["tokens"]
+        if len(token_data) > 0:
+            prices = {}
+            for token in token_data:
+                id = token["id"]
+                if id not in prices:
+                    prices[id] = float(token["derivedETH"])
+            return prices
+    else:
+        print("Could not get data from {}".format(exchange_api))
+    return []
