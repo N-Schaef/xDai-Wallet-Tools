@@ -1,9 +1,10 @@
 <!-- templates/home.html -->
 {% extends 'base.html' %}
-
+{% load static %}
 {% block title %}Wallet {{wallet.address}}{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" type="text/css" href="{% static 'walletview/css/wallet.css' %}">
   <div class="w3-card-4">
     <header class="w3-container w3-blue">
       <h4>{{wallet.address}}</h4>
@@ -25,9 +26,9 @@
           {% if not token.token.liquidity and not token.balance_calculated == 0.0 %}
             <tr>
             <td>{{token.token.name}} ({{token.token.symbol}})</td>
-            <td>{{token.balance_human}}</td>
-            <td>{{token.get_last_value.price_human}}</td>
-            <td>{{token.value_human}}</td>
+            <td><span data-tooltip="up" aria-label="{{token.fetched}}">{{token.balance_human}}</span></td>
+            <td><span data-tooltip="up" aria-label="{{token.get_last_value.fetched}}">{{token.get_last_value.price_human}}</span></td>
+            <td><span data-tooltip="up" aria-label="{{token.fetched}}">{{token.value_human}}</span></td>
            </tr>      
           {% endif %}  
         {% endfor %}
@@ -48,8 +49,8 @@
           {% if not liquidity.balance == 0.0 %}
             <tr>
             <td>{{liquidity.liquidity.pair}}</td>
-            <td>{{liquidity.balance_human}}</td>
-            <td>{{liquidity.value_human}}</td>
+            <td><span data-tooltip="up" aria-label="{{liquidity.fetched}}">{{liquidity.balance_human}}</span></td>
+            <td><span data-tooltip="up" aria-label="{{liquidity.fetched}}">{{liquidity.value_human}}</span></td>
             <td>{{liquidity.liquidity.exchange.name}}</td>
            </tr>      
           {% endif %}  
@@ -61,7 +62,7 @@
     <footer class="w3-container w3-blue">
     <div class="w3-row">
     <div class="w3-half">
-    <h5>xDai: {{wallet.get_balance.xdai_human}}</h5>
+    <h5><span data-tooltip="up" aria-label="{{wallet.get_balance.fetched}}">xDai: {{wallet.get_balance.xdai_human}}</span></h5>
     </div>
     <div class="w3-half w3-right-align">
     <h5>Total: {{wallet.value_human}}</h5>
