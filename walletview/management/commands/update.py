@@ -55,6 +55,7 @@ class Command(BaseCommand):
         wallets = Wallet.objects.all()
         addresses = list(map(wallet_to_address,wallets))
         self.stdout.write("Fetching liquidities {} wallets on {} exchanges".format(wallets.count(),exchanges.count()))
+        updated = dict()
         for exchange in exchanges:
             liquidities = uniswap.fetch_all_liquidities(exchange.api,addresses)
             self.stdout.write("Fetched {} liquidities from {}".format(len(liquidities),exchange.name))
@@ -64,6 +65,17 @@ class Command(BaseCommand):
                     liquidity.liquidityvalue_set.create(price=l['price'])
                     liquidity.walletliquidity_set.create(
                         wallet=Wallet.objects.get(address=l['wallet']), balance=l['balance'])
+                    if l['wallet'] not in updated:
+                        updated[l['wallet']] = [liquidity.token.get_address()]
+                    else:
+                        updated[l['wallet']].append(liquidity.token.get_address())
+        for wallet in wallets:
+            update = updated.get(wallet.get_address(),[])
+            for old_liquidity in wallet.get_liquidities():
+                if old_liquidity.liquidity.token.get_address() not in update:
+                    wallet.walletliquidity_set.create(liquidity=old_liquidity.liquidity, balance=0) 
+
+                    
 
 
     def update_wallet(self):
