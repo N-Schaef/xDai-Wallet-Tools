@@ -1,14 +1,13 @@
 from django.conf import settings
 import requests
 
-
 def split_chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
 
 def fetch_wallet_balances(addresses):
-    res = []
+    res = {}
     for wallets_chunk in list(split_chunks(addresses, 100)):
         url = "{}{}{}".format(settings.BLOCKSCOUT_URL, settings.BLOCKSCOUT_MULTIPLE_BALANCE_ENDPOINT, ','.join(
             wallets_chunk))
@@ -18,7 +17,7 @@ def fetch_wallet_balances(addresses):
             balances = balance_data["result"]
 
             for balance in balances:
-                res.append((balance["account"], balance["balance"]))
+                res[balance["account"].lower()] = balance["balance"]
     return res
 
 

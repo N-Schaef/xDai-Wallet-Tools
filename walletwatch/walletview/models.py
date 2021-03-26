@@ -18,6 +18,9 @@ def format_balance(val):
         return "{:.3g}".format(val)
     return "{:.2f}".format(val)
 
+def format_address(address):
+    return address.lower()
+
 
 #     _____             __ _
 #    / ____|           / _(_)
@@ -49,6 +52,9 @@ class Wallet(models.Model):
 
     def __str__(self):
         return "{} ({})".format(self.address,self.value())
+    
+    def get_address(self):
+        return format_address(self.address)
 
     def get_balance(self):
         return self.walletbalance_set.order_by('-id').first()
@@ -135,6 +141,9 @@ class Token(models.Model):
 
     def __str__(self):
         return "{} {} ({})".format(self.symbol, self.name, self.address)
+    
+    def get_address(self):
+        return format_address(self.address)
 
 
 class LiquidityToken(models.Model):

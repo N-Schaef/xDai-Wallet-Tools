@@ -32,6 +32,37 @@ def fetch_liquidities(exchange_api,address):
             ret.append(l)
         return ret
 
+def fetch_all_liquidities(exchange_api,addresses):
+    req_data = """
+{{"query":
+"{{users(where:{{id_in:[{addresses}]}}){{id,\\nliquidityPositions{{id,liquidityTokenBalance,pair{{id,totalSupply,reserveUSD,token0{{id,name,symbol}}token1{{id,name,symbol}}}}}}}}}}", "variables": null
+}}
+  """.format(addresses=','.join(map(lambda t: '\\"' + t + '\\"', addresses)))
+    req_json = json.loads(req_data)
+    liquidity_response = requests.post(exchange_api, json=req_json)
+    ret = []
+    if(liquidity_response.ok):
+        data = liquidity_response.json()
+        if "errors" in data:
+            return ret
+        users = data["data"]["users"]
+        if users is None:
+            return ret
+        for user in users:
+            liquidity_data = user["liquidityPositions"]
+            for liquidity in liquidity_data:
+                pair = liquidity["pair"]
+                l = {
+                'wallet':  user["id"],
+                'address': pair['id'],
+                'token0': pair['token0'],
+                'token1': pair['token1'],
+                'balance': liquidity['liquidityTokenBalance'],
+                'price': (float(pair["reserveUSD"]) / float(pair["totalSupply"])),
+                }
+                ret.append(l)
+    return ret
+
 def update_liquidities(exchange_api,tokens):
     req_data = """
 {{"query":
