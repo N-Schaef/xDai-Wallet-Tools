@@ -201,6 +201,9 @@ class TokenValue(models.Model):
 
     def value(self, balance):
         return balance*self.price
+    
+    def price_human(self):
+        return format_money(self.price)
 
 
 class LiquidityValue(models.Model):
@@ -210,6 +213,9 @@ class LiquidityValue(models.Model):
 
     def value(self, balance):
         return balance*self.price
+
+    def price_human(self):
+        return format_money(self.price)
 
 
 class WalletLiquidity(models.Model):
