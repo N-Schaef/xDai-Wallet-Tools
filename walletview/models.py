@@ -107,11 +107,17 @@ class Wallet(models.Model):
 
     def update_tokens(self):
         tokens = blockscout.fetch_tokens(self.address)
+        old_tokens = self.get_tokens()
+        updated = []
         for token in tokens:
             (token_obj, _) = Token.objects.get_or_create(
                 address=token['address'], name=token['name'], symbol=token['symbol'])
             self.wallettoken_set.create(
                 token=token_obj, balance=token['balance'], decimals=int(token['decimals']))
+            updated.append(format_address(token['address']))
+        for token in old_tokens:
+            if token.token.get_address() not in updated:
+                self.wallettoken_set.create(token=token.token, balance=0, decimals=token.decimals)
 
 
 class WatchWallet(models.Model):
