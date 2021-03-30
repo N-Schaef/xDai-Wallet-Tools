@@ -1,19 +1,19 @@
-version: "3.9"
+version: "3"
     
 services:
   db:
     image: mysql
     volumes:
-      - db_data:/var/lib/mysql
+      - wallet_data:/var/lib/mysql
     restart: always
     command: --default-authentication-plugin=mysql_native_password
-    ports:
-      - 3306:3306
     environment:
       MYSQL_ROOT_PASSWORD: pwxdaiwallet
       MYSQL_DATABASE: xdaiwallet
       MYSQL_USER: xdaiwallet
       MYSQL_PASSWORD: xdaiwallet
+    networks:
+      - walletwatch
   walletwatch:
     build:
       context: .
@@ -21,11 +21,23 @@ services:
     image: walletwatch
     restart: always
     container_name: walletwatch
-    ports:
-      - 8000:8000
     depends_on:
       - db
-
-
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wallet.rule=Host(`***REMOVED***`)"
+      - "traefik.http.routers.wallet.entrypoints=websecure"
+      - "traefik.http.routers.wallet.middlewares=secHeaders@file"
+      - "traefik.http.routers.wallet.tls.certresolver=myresolver" # your cert resolver
+      - traefik.docker.network=traefik
+      - traefik.http.services.wallet.loadbalancer.server.port=8000
+    networks:
+      - walletwatch
+      - traefik
 volumes:
-  db_data: {}
+  wallet_data: {}
+networks:
+  walletwatch : {}
+  traefik:
+    external:
+      name: traefik_net
