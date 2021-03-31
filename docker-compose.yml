@@ -20,24 +20,14 @@ services:
       dockerfile: docker/Dockerfile
     image: walletwatch
     restart: always
+    ports: 
+      - 8000:8000
     container_name: walletwatch
     depends_on:
       - db
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.wallet.rule=Host(`***REMOVED***`)"
-      - "traefik.http.routers.wallet.entrypoints=websecure"
-      - "traefik.http.routers.wallet.middlewares=secHeaders@file"
-      - "traefik.http.routers.wallet.tls.certresolver=myresolver" # your cert resolver
-      - traefik.docker.network=traefik
-      - traefik.http.services.wallet.loadbalancer.server.port=8000
     networks:
       - walletwatch
-      - traefik
 volumes:
   wallet_data: {}
 networks:
   walletwatch : {}
-  traefik:
-    external:
-      name: traefik_net
