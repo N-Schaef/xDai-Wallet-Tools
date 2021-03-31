@@ -1,6 +1,7 @@
 FROM python:3-alpine
 ENV PYTHONUNBUFFERED=1
 ADD . /api
+ADD update.sh /etc/periodic/hourly/update
 WORKDIR /api 
 RUN apk --no-cache add mariadb-client mariadb-dev gcc python3-dev musl-dev libffi-dev mariadb-connector-c-dev
 RUN pip install -r requirements.txt
