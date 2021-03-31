@@ -16,6 +16,9 @@ done
 echo "Apply database migrations"
 ./manage.py migrate
 
+echo "Starting crond"
+crond -L /dev/stdout
+
 # Start server
 echo "Starting server"
 uwsgi --http "0.0.0.0:${PORT}" --module walletwatch.wsgi  --master --processes 4 --threads 2
