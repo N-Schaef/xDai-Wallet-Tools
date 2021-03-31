@@ -17,7 +17,7 @@ echo "Apply database migrations"
 ./manage.py migrate
 
 echo "Starting crond"
-crond -L /dev/stdout
+crond -l 0 -b
 
 # Start server
 echo "Starting server"
