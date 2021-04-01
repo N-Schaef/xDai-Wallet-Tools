@@ -23,6 +23,15 @@ services:
     ports: 
       - 8000:8000
     container_name: walletwatch
+    environment:
+      - SECRET_KEY=SECRET_KEY_HERE
+      - DEBUG=False
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=walletwatch
+      - DB_PASSWORD=walletwatch
+      - DB_DATABASE=walletwatch
+      - TIMEZONE=CET
     depends_on:
       - db
     networks:
