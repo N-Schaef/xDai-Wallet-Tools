@@ -33,8 +33,8 @@ class IndexView(generic.ListView):
         return context
 
 @login_required
-def wallet(request, wallet_id):
-    wallet = get_object_or_404(Wallet, pk=wallet_id)
+def wallet(request, wallet_address):
+    wallet = get_object_or_404(Wallet, address=wallet_address.lower())
     return render(request, 'walletview/wallet.html', {'wallet': wallet})
 
 @login_required
