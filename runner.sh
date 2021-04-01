@@ -16,6 +16,10 @@ done
 echo "Apply database migrations"
 ./manage.py migrate
 
+# Create Superuser
+echo "Create Superuser"
+./manage.py createsuperuser --noinput
+
 echo "Starting crond"
 crond -l 0 -b
 

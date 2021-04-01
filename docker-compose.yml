@@ -32,6 +32,9 @@ services:
       - DB_PASSWORD=walletwatch
       - DB_DATABASE=walletwatch
       - TIMEZONE=CET
+      - DJANGO_SUPERUSER_EMAIL=example@example.com
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_PASSWORD=admin
     depends_on:
       - db
     networks:
