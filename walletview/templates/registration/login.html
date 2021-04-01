@@ -3,11 +3,11 @@
 {% load static %}
 
 
-{% block title %}Login{% endblock %}
+{% block title %}Change Password{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" type="text/css" href="{% static 'walletview/css/login.css' %}">
-<h2>Log In</h2>
+<h2>Change Password</h2>
 <form class="w3-container" name="LoginForm" method="post" >
         {% csrf_token %}
         {% if next %}
