@@ -4,7 +4,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('',login_required(views.IndexView.as_view()), name='wallets'),
+    path('',login_required(views.IndexView.as_view()), name='home'),
     path('wallets',login_required(views.IndexView.as_view()) , name='wallets'),
     path('wallets/add',views.add_wallet , name='add_wallet'),
     path('<int:wallet_id>', views.wallet, name='wallet'),
