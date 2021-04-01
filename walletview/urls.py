@@ -8,5 +8,5 @@ urlpatterns = [
     path('wallets',login_required(views.IndexView.as_view()) , name='wallets'),
     path('wallets/add',views.add_wallet , name='add_wallet'),
     path('wallets/<wallet_address>', views.wallet, name='wallet'),
-    path('token/<int:token_id>', views.tokens, name='tokens'),
+    path('wallets/<wallet_address>/token/<int:token_id>', views.wallet_token, name='wallet_token'),
 ]

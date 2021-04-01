@@ -1,10 +1,11 @@
+from typing import Dict
 from django.db import models
 from django.conf import settings
 from django.db.models import Max
 from django.utils.timezone import make_aware
 import requests
 from .helper import blockscout, uniswap
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def format_money(val):
@@ -211,6 +212,9 @@ class TokenValue(models.Model):
     def price_human(self):
         return format_money(self.price)
 
+    def __str__(self):
+        return "{}: {} - {}".format(self.exchange.name,self.price_human(), self.fetched)
+
 
 class LiquidityValue(models.Model):
     liquidity = models.ForeignKey(LiquidityToken, on_delete=models.CASCADE)
@@ -261,8 +265,27 @@ class WalletToken(models.Model):
     def get_last_value(self):
         return self.token.tokenvalue_set.order_by('-fetched').first()
 
+    def get_last_value_at_fetch(self):
+        return self.token.tokenvalue_set.order_by('-fetched').filter(fetched__lte=self.fetched+timedelta(minutes=5)).first()
+    
+    def get_last_values(self):
+        num_exchanges = Exchange.objects.count()
+        values = self.token.tokenvalue_set.order_by('-fetched')[:num_exchanges]
+        val_dict =  {}
+        for value in values:
+            exchange_name = value.exchange.name
+            if value.exchange.name not in val_dict:
+                val_dict[exchange_name] = value
+        return val_dict
+
     def value(self):
         s=self.get_last_value()
+        if s :
+            return s.value(self.balance_calculated())
+        return 0.0
+    
+    def value_at_fetch(self):
+        s=self.get_last_value_at_fetch()
         if s :
             return s.value(self.balance_calculated())
         return 0.0

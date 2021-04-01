@@ -1,3 +1,4 @@
+import json
 from walletview.helper import blockscout
 from django.conf.urls import url
 from django.views import generic
@@ -6,8 +7,10 @@ from django.http import HttpResponse
 from django.http.response import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
-from .models import Wallet, WatchWallet, format_money
+from .models import Token, Wallet, WatchWallet, format_money
+from django.utils.safestring import mark_safe
 # Create your views here.
+
 
 def home(request):
     return render(request, 'home.html')
@@ -19,7 +22,8 @@ class IndexView(generic.ListView):
 
     def get_queryset(self):
         """Return all wallets watched by the user"""
-        wallets=WatchWallet.objects.prefetch_related('wallet').filter(user=self.request.user)
+        wallets = WatchWallet.objects.prefetch_related(
+            'wallet').filter(user=self.request.user)
         return wallets
 
     def get_context_data(self, **kwargs):
@@ -32,10 +36,38 @@ class IndexView(generic.ListView):
         context['total'] = format_money(total)
         return context
 
+
 @login_required
 def wallet(request, wallet_address):
     wallet = get_object_or_404(Wallet, address=wallet_address.lower())
     return render(request, 'walletview/wallet.html', {'wallet': wallet})
+
+
+@login_required
+def wallet_token(request, wallet_address, token_id):
+    wallet = get_object_or_404(Wallet, address=wallet_address.lower())
+    token = get_object_or_404(Token, pk=token_id)
+    wallet_token = wallet.wallettoken_set.filter(
+        token=token).order_by('-fetched').first()
+
+    # Balance
+    (balance_ts, balance_data) = zip(*[(balance.fetched.timestamp(), balance.balance_calculated(
+    )) for balance in wallet.wallettoken_set.filter(token=token).order_by('fetched').iterator()])
+    history_balance = mark_safe(json.dumps(
+        [list(balance_ts), list(balance_data)]))
+
+    # Value
+    (value_ts, value_data) = zip(*[(balance.fetched.timestamp(), balance.value_at_fetch(
+    )) for balance in wallet.wallettoken_set.filter(token=token).order_by('fetched').iterator()])
+    history_value = mark_safe(json.dumps([list(value_ts), list(value_data)]))
+
+    # Price
+    (price_ts, price_data) = zip(*[(value.fetched.timestamp(), value.price)
+                                   for value in token.tokenvalue_set.order_by('fetched').iterator()])
+    history_price = mark_safe(json.dumps([list(price_ts), list(price_data)]))
+
+    return render(request, 'walletview/wallettoken.html', {'wallet': wallet, 'token': token, 'wallet_token': wallet_token, 'history_balance': history_balance, 'history_value': history_value, 'history_price': history_price})
+
 
 @login_required
 def add_wallet(request):
@@ -43,14 +75,12 @@ def add_wallet(request):
         name = request.POST.get("name")
         wallet = request.POST.get("wallet").lower()
         if blockscout.fetch_wallet_balance(wallet) is not None:
-            (wallet,created_wallet) = Wallet.objects.get_or_create(address=wallet,verified=True)
-            (watch,_) = WatchWallet.objects.get_or_create(user=request.user,wallet=wallet,name=name)
+            (wallet, created_wallet) = Wallet.objects.get_or_create(
+                address=wallet, verified=True)
+            (watch, _) = WatchWallet.objects.get_or_create(
+                user=request.user, wallet=wallet, name=name)
             if created_wallet:
                 wallet.update()
     return redirect("wallets")
 
-
-def tokens(request, token_id):
-    response = "You're looking at the token %s."
-    return HttpResponse(response % token_id)
 
