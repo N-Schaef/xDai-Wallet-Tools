@@ -28,6 +28,7 @@ def fetch_wallet_balance(address):
     if(balance_response.ok):
         balance_data = balance_response.json()
         return balance_data["result"]
+    return None
         
 
 

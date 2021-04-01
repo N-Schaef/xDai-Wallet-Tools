@@ -1,8 +1,11 @@
+from walletview.helper import blockscout
+from django.conf.urls import url
+from walletview.forms.wallet import WatchWalletForm
 from django.views import generic
 from django import template
 from django.http import HttpResponse
 from django.http.response import Http404
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
 from .models import Wallet, WatchWallet, format_money
 # Create your views here.
@@ -34,6 +37,18 @@ class IndexView(generic.ListView):
 def wallet(request, wallet_id):
     wallet = get_object_or_404(Wallet, pk=wallet_id)
     return render(request, 'walletview/wallet.html', {'wallet': wallet})
+
+@login_required
+def add_wallet(request):
+    if request.method == "POST":
+        name = request.POST.get("name")
+        wallet = request.POST.get("wallet").lower()
+        if blockscout.fetch_wallet_balance(wallet) is not None:
+            (wallet,created_wallet) = Wallet.objects.get_or_create(address=wallet,verified=True)
+            (watch,_) = WatchWallet.objects.get_or_create(user=request.user,wallet=wallet,name=name)
+            if created_wallet:
+                wallet.update()
+    return redirect("wallets")
 
 
 def tokens(request, token_id):

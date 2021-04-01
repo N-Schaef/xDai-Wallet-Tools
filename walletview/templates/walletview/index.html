@@ -27,5 +27,22 @@
   {% else %}
       <p>No wallets are available.</p>
   {% endif %}
+  <div class="w3-card-4 w3-margin-bottom">
+    <form method="post" action="{% url 'add_wallet' %}">
+    {% csrf_token %}
+      <div class="w3-row">
+        <div class="w3-quarter">
+        <input type="text" id="name" name="name"  placeholder="Name" class="w3-input w3-border">
+        </div>
+        <div class="w3-half">
+        <input type="text" id="wallet" name="wallet"  placeholder="Wallet Address" class="w3-input w3-border">
+        </div>
+        <div class="w3-rest w3-right-align">
+        <button type="submit" class="w3-btn w3-blue">Add Wallet</button>
+        </div>
+      </div>
+    </form>
+
+  </div>
 {% endblock %}
 
