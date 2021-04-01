@@ -8,6 +8,14 @@
 {% block content %}
 <link rel="stylesheet" type="text/css" href="{% static 'walletview/css/login.css' %}">
 <h2>Login</h2>
+
+
+{% for  error in  form.non_field_errors  %}
+<div class="w3-panel w3-red">
+  <p>{{error}}</p>
+</div> 
+{% endfor %}
+
 <form class="w3-container" name="LoginForm" method="post" >
         {% csrf_token %}
         {% if next %}
@@ -18,12 +26,14 @@
             <div class="controls">
                 <input type="text" id="username" name="username"  placeholder="Username" class="w3-input">
             </div>
+            {{ form.username.errors }}
         </div>
         <div class="w3-container w3-margin-bottom">
             <label class="control-label" for="password">Password</label>
             <div class="controls">
                 <input type="password" name="password" id="password" placeholder="Password" class="w3-input">
             </div>
+            {{ form.password.errors }}
         </div>
 
 
