@@ -1,6 +1,5 @@
 from walletview.helper import blockscout
 from django.conf.urls import url
-from walletview.forms.wallet import WatchWalletForm
 from django.views import generic
 from django import template
 from django.http import HttpResponse
