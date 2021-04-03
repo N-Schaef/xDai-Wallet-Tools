@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.http.response import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
-from .models import Token, Wallet, WatchWallet, format_money
+from .models import Token, Wallet, WatchWallet, format_money, get_best_priced
 from django.utils.safestring import mark_safe
 # Create your views here.
 
@@ -40,8 +40,26 @@ class IndexView(generic.ListView):
 @login_required
 def wallet(request, wallet_address):
     wallet = get_object_or_404(Wallet, address=wallet_address.lower())
-    return render(request, 'walletview/wallet.html', {'wallet': wallet})
+    tokens = wallet.get_tokens()
+    token_values = {}
+    for token in tokens:
+        last=token.get_last_value()
+        if last is None:
+            token_values[token] = None
+            continue
+        similar=last.get_similar()
+        value = get_best_priced(similar)
+        if value is None:
+            token_values[token]=last
+        else:
+            token_values[token]=value
+        
+    return render(request, 'walletview/wallet.html', {'wallet': wallet, 'token_values':token_values})
 
+def unzip(l):
+    if len(l) == 0:
+        return [[],[]]
+    return zip(*l)
 
 @login_required
 def wallet_token(request, wallet_address, token_id):
@@ -51,18 +69,18 @@ def wallet_token(request, wallet_address, token_id):
         token=token).order_by('-fetched').first()
 
     # Balance
-    (balance_ts, balance_data) = zip(*[(balance.fetched.timestamp(), balance.balance_calculated(
+    (balance_ts, balance_data) = unzip([(balance.fetched.timestamp(), balance.balance_calculated(
     )) for balance in wallet.wallettoken_set.filter(token=token).order_by('fetched').iterator()])
     history_balance = mark_safe(json.dumps(
         [list(balance_ts), list(balance_data)]))
 
     # Value
-    (value_ts, value_data) = zip(*[(balance.fetched.timestamp(), balance.value_at_fetch(
+    (value_ts, value_data) = unzip([(balance.fetched.timestamp(), balance.value_at_fetch(
     )) for balance in wallet.wallettoken_set.filter(token=token).order_by('fetched').iterator()])
     history_value = mark_safe(json.dumps([list(value_ts), list(value_data)]))
 
     # Price
-    (price_ts, price_data) = zip(*[(value.fetched.timestamp(), value.price)
+    (price_ts, price_data) = unzip([(value.fetched.timestamp(), value.price)
                                    for value in token.tokenvalue_set.order_by('fetched').iterator()])
     history_price = mark_safe(json.dumps([list(price_ts), list(price_data)]))
 

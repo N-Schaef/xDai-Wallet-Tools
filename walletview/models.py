@@ -6,7 +6,8 @@ from django.utils.timezone import make_aware
 import requests
 from .helper import blockscout, uniswap
 from datetime import datetime, timedelta
-
+from django.db.models import Q
+from django.utils.functional import cached_property
 
 def format_money(val):
     if val < 1.0:
@@ -21,6 +22,26 @@ def format_balance(val):
 
 def format_address(address):
     return address.lower()
+
+def query_before_ts_query(q, timestamp):
+    if timestamp is not None:
+        q.add(Q(fetched__lte=timestamp+timedelta(minutes=5)),Q.AND) 
+
+def query_within_5_min(q,timestamp):
+    q.add(Q(fetched__lte=timestamp+timedelta(minutes=5)),Q.AND)
+    q.add(Q(fetched__gte=timestamp+timedelta(minutes=-5)),Q.AND)
+
+def query_from_exchange(q,exchange):
+    if exchange is not None:
+         q.add(Q(exchange=exchange),Q.AND) 
+
+def get_best_priced(token_values):
+    max_valued = (None,-1)
+    for token in token_values:
+        val = token.price
+        if max_valued[0] == None or max_valued[1] < val:
+            max_valued = (token,val)
+    return max_valued[0]
 
 
 #     _____             __ _
@@ -57,25 +78,25 @@ class Wallet(models.Model):
     def get_address(self):
         return format_address(self.address)
 
-    def get_balance(self):
-        return self.walletbalance_set.order_by('-id').first()
+    def get_balance(self, filter=Q()):
+        return self.walletbalance_set.filter(filter).order_by('-id').first()
 
-    def get_tokens(self):
-        ids=self.wallettoken_set.values('token','wallet').annotate(Max('id'))
+    def get_tokens(self, filter=Q()):
+        ids=self.wallettoken_set.filter(filter).values('token','wallet').annotate(Max('id'))
         return [WalletToken.objects.get(pk=i['id__max']) for i in ids]
 
-    def get_liquidities(self):
-        ids=self.walletliquidity_set.values('liquidity','wallet').annotate(Max('id'))
+    def get_liquidities(self, filter=Q()):
+        ids=self.walletliquidity_set.filter(filter).values('liquidity','wallet').annotate(Max('id'))
         return [WalletLiquidity.objects.get(pk=i['id__max']) for i in ids]
 
-    def value(self):
+    def value(self, filter=Q()):
         value = 0.0
-        balance = self.get_balance()
+        balance = self.get_balance(filter)
         if balance:
             value += balance.value()
-        for token in self.get_tokens():
+        for token in self.get_tokens(filter):
             value += token.value()
-        for liquidity in self.get_liquidities():
+        for liquidity in self.get_liquidities(filter):
             value += liquidity.value()
         return value
 
@@ -206,6 +227,12 @@ class TokenValue(models.Model):
     price = models.FloatField(default=0.0)
     fetched = models.DateTimeField('fetched', auto_now_add=True, blank=True)
 
+
+    def get_similar(self):
+        q=Q(token=self.token)
+        query_within_5_min(q,self.fetched)
+        return TokenValue.objects.filter(q).exclude(id = self.id)
+
     def value(self, balance):
         return balance*self.price
     
@@ -234,11 +261,12 @@ class WalletLiquidity(models.Model):
     balance = models.FloatField(default=0.0)
     fetched = models.DateTimeField('fetched', auto_now_add=True, blank=True)
 
-    def get_last_value(self):
-        return self.liquidity.liquidityvalue_set.order_by('-fetched').first()
 
-    def value(self):
-        s=self.get_last_value()
+    def get_last_value(self, filter=Q()):
+        return self.liquidity.liquidityvalue_set.filter(filter).order_by('-fetched').first()
+
+    def value(self, filter=Q()):
+        s=self.get_last_value(filter)
         if s :
             return s.value(self.balance)
         return 0.0
@@ -246,8 +274,8 @@ class WalletLiquidity(models.Model):
     def balance_human(self):
         return format_balance(self.balance)
 
-    def value_human(self):
-        return format_money(self.value())
+    def value_human(self, filter=Q()):
+        return format_money(self.value(filter))
 
 class WalletToken(models.Model):
     token = models.ForeignKey(Token, on_delete=models.CASCADE)
@@ -262,36 +290,23 @@ class WalletToken(models.Model):
     def balance_human(self):
         return format_balance(self.balance_calculated())
 
-    def get_last_value(self):
-        return self.token.tokenvalue_set.order_by('-fetched').first()
 
-    def get_last_value_at_fetch(self):
-        return self.token.tokenvalue_set.order_by('-fetched').filter(fetched__lte=self.fetched+timedelta(minutes=5)).first()
-    
-    def get_last_values(self):
-        num_exchanges = Exchange.objects.count()
-        values = self.token.tokenvalue_set.order_by('-fetched')[:num_exchanges]
-        val_dict =  {}
-        for value in values:
-            exchange_name = value.exchange.name
-            if value.exchange.name not in val_dict:
-                val_dict[exchange_name] = value
-        return val_dict
+    def get_last_value(self,filter=Q()):
+        return self.token.tokenvalue_set.filter(filter).order_by('-fetched').first()
 
-    def value(self):
-        s=self.get_last_value()
-        if s :
-            return s.value(self.balance_calculated())
-        return 0.0
-    
     def value_at_fetch(self):
-        s=self.get_last_value_at_fetch()
+        q=Q()
+        query_before_ts_query(q,self.fetched)
+        return self.value(q)
+
+    def value(self,filter=Q()):
+        s=self.get_last_value(filter)
         if s :
             return s.value(self.balance_calculated())
         return 0.0
-
-    def value_human(self):
-        return format_money(self.value())
+    
+    def value_human(self,filter=Q()):
+        return format_money(self.value(filter))
 
 
 class WalletBalance(models.Model):

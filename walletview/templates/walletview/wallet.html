@@ -22,13 +22,13 @@
           <th>Price</th>
           <th>Value</th>
         </tr>
-        {% for token in wallet.get_tokens %}
+        {% for token, value in token_values.items %}
           {% if not token.token.liquidity and not token.balance_calculated == 0.0 %}
             <tr>
             <td><a href="{% url 'wallet_token' wallet.address token.token.id %}">{{token.token.name}} ({{token.token.symbol}})</a></td>
             <td><span data-tooltip="up" aria-label="{{token.fetched}}">{{token.balance_human}}</span></td>
-            <td><span data-tooltip="up" aria-label="{{token.get_last_value.fetched}}">{{token.get_last_value.price_human}}</span></td>
-            <td><span data-tooltip="up" aria-label="{{token.fetched}}">{{token.value_human}}</span></td>
+            <td><span data-tooltip="up" aria-label="{{value.fetched}} \\ {{value.exchange.name}}">{{value.price_human}}</span></td>
+            <td><span data-tooltip="up" aria-label="{{token.fetched}} - {{value.exchange.name}}">{{token.value_human}}</span></td>
            </tr>      
           {% endif %}  
         {% endfor %}
