@@ -1,0 +1,130 @@
+<!-- templates/home.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Wallet {{wallet.address}} - Token {{token.name}}{% endblock %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'walletview/css/uPlot.min.css' %}">
+<script src="{% static 'walletview/js/uPlot.iife.min.js'%}"></script>
+
+<div class="w3-card-4">
+    <header class="w3-container w3-blue">
+      <h4>{{liquidity.token0.symbol}} - {{liquidity.token1.symbol}} </h4>
+      <h6><a href="{% url 'wallet' wallet.address %}">{{wallet.address}}</a></h6>
+    </header>
+
+    <div id="value_chart" class="w3-center"></div>
+
+    <div class="w3-row">
+    <div id="balance_chart" class="w3-half"></div>
+    <div id="price_chart" class="w3-half"></div>
+    </div>
+
+
+    <footer class="w3-container w3-blue">
+    <div class="w3-row">
+    <div class="w3-third">
+    <h5><span>Balance: {{wallet_liquidity.balance_human}}</span></h5>
+    </div>
+    <div class="w3-third">
+    <h5><span>Price: {{wallet_liquidity.get_last_value.price_human}}</span></h5>
+    </div>
+    <div class="w3-third w3-right-align">
+    <h5>Value: {{wallet_liquidity.value_human}}</h5>
+    </div>
+    </div>
+    </footer>
+  </div>
+
+<script type="text/javascript">
+var ctx = document.getElementById('balance_chart');
+
+ let balance_opts = {
+  title: "Balance",
+  id: "balance_chart",
+  class: "my-chart",
+  width: 400,
+  height: 200,
+  series: [
+    {},
+    {
+      // initial toggled state (optional)
+      show: true,
+      spanGaps: false,
+      // series style
+      stroke: "rgb(33, 150, 243)",
+      width: 1,
+      fill: "rgba(33, 150, 243,0.6)",
+      dash: [10, 5],
+    }
+  ],
+};
+ 
+let balance_uplot = new uPlot(balance_opts,  {{history_balance}}, ctx);
+
+</script>
+
+
+
+<script type="text/javascript">
+var ctx = document.getElementById('price_chart');
+
+ let price_opts = {
+  title: "Price",
+  id: "price_chart",
+  class: "my-chart",
+  width: 400,
+  height: 200,
+  series: [
+    {},
+    {
+      // initial toggled state (optional)
+      show: true,
+      spanGaps: false,
+      value: (self, rawValue) => "$" + rawValue.toFixed(2),
+      // series style
+      stroke: "rgb(33, 150, 243)",
+      width: 1,
+      fill: "rgba(33, 150, 243,0.6)",
+      dash: [10, 5],
+    }
+  ],
+};
+ 
+let price_uplot = new uPlot(price_opts,  {{history_price}}, ctx);
+
+</script>
+
+
+
+
+<script type="text/javascript">
+var ctx = document.getElementById('value_chart');
+
+ let value_opts = {
+  title: "Value",
+  id: "value_chart",
+  class: "my-chart",
+  width: 400,
+  height: 200,
+  series: [
+    {},
+    {
+      // initial toggled state (optional)
+      show: true,
+      spanGaps: false,
+      value: (self, rawValue) => "$" + rawValue.toFixed(2),
+      stroke: "rgb(33, 150, 243)",
+      width: 1,
+      fill: "rgba(33, 150, 243,0.6)",
+      dash: [10, 5],
+    }
+  ],
+};
+ 
+let value_uplot = new uPlot(value_opts,  {{history_value}}, ctx);
+
+</script>
+
+{% endblock %}

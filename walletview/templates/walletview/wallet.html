@@ -48,7 +48,7 @@
         {% for liquidity in wallet.get_liquidities %}
           {% if not liquidity.balance == 0.0 %}
             <tr>
-            <td>{{liquidity.liquidity.pair}}</td>
+            <td><a href="{% url 'wallet_liquidity' wallet.address liquidity.liquidity.token.id %}">{{liquidity.liquidity.pair}}</a></td>
             <td><span data-tooltip="up" aria-label="{{liquidity.fetched}}">{{liquidity.balance_human}}</span></td>
             <td><span data-tooltip="up" aria-label="{{liquidity.fetched}}">{{liquidity.value_human}}</span></td>
             <td>{{liquidity.liquidity.exchange.name}}</td>

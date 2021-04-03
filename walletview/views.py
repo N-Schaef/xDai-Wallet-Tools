@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.http.response import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
-from .models import Token, Wallet, WatchWallet, format_money, get_best_priced
+from .models import LiquidityToken, Token, Wallet, WatchWallet, format_money, get_best_priced
 from django.utils.safestring import mark_safe
 # Create your views here.
 
@@ -86,6 +86,29 @@ def wallet_token(request, wallet_address, token_id):
 
     return render(request, 'walletview/wallettoken.html', {'wallet': wallet, 'token': token, 'wallet_token': wallet_token, 'history_balance': history_balance, 'history_value': history_value, 'history_price': history_price})
 
+@login_required
+def wallet_liquidity(request, wallet_address, liquidity_id):
+    wallet = get_object_or_404(Wallet, address=wallet_address.lower())
+    liquidity = get_object_or_404(LiquidityToken, pk=liquidity_id)
+    wallet_liquidity = wallet.walletliquidity_set.filter(
+        liquidity=liquidity).order_by('-fetched').first()
+
+    # Balance
+    (balance_ts, balance_data) = unzip([(balance.fetched.timestamp(), balance.balance) for balance in wallet.walletliquidity_set.filter(liquidity=liquidity).order_by('fetched').iterator()])
+    history_balance = mark_safe(json.dumps(
+        [list(balance_ts), list(balance_data)]))
+
+    # Value
+    (value_ts, value_data) = unzip([(balance.fetched.timestamp(), balance.value_at_fetch(
+    )) for balance in wallet.walletliquidity_set.filter(liquidity=liquidity).order_by('fetched').iterator()])
+    history_value = mark_safe(json.dumps([list(value_ts), list(value_data)]))
+
+    # Price
+    (price_ts, price_data) = unzip([(value.fetched.timestamp(), value.price)
+                                   for value in liquidity.liquidityvalue_set.order_by('fetched').iterator()])
+    history_price = mark_safe(json.dumps([list(price_ts), list(price_data)]))
+
+    return render(request, 'walletview/walletliquidity.html', {'wallet': wallet, 'liquidity': liquidity, 'wallet_liquidity': wallet_liquidity, 'history_balance': history_balance, 'history_value': history_value, 'history_price': history_price})
 
 @login_required
 def add_wallet(request):

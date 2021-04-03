@@ -264,6 +264,11 @@ class WalletLiquidity(models.Model):
 
     def get_last_value(self, filter=Q()):
         return self.liquidity.liquidityvalue_set.filter(filter).order_by('-fetched').first()
+    
+    def value_at_fetch(self):
+        q=Q()
+        query_before_ts_query(q,self.fetched)
+        return self.value(q)
 
     def value(self, filter=Q()):
         s=self.get_last_value(filter)
