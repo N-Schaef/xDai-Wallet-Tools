@@ -21,8 +21,8 @@
           <div class="w3-col s3 w3-right-align">
             {{ wallet.wallet.value_human }} 
             <br>
-            {% labelled_perc_diff wallet.wallet.value wallet.wallet.value_1h "1H" %} 
-            {% labelled_perc_diff wallet.wallet.value wallet.wallet.value_24h "24H"%}
+            {% labelled_perc_diff wallet.wallet.value_1h wallet.wallet.value "1H" %} 
+            {% labelled_perc_diff wallet.wallet.value_24h wallet.wallet.value "24H"%}
           </div>
         </div>
         <div class="">

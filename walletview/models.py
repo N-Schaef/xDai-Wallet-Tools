@@ -111,9 +111,9 @@ class Wallet(models.Model):
         if balance:
             value += balance.value()
         for token in self.get_tokens(filter):
-            value += token.value()
+            value += token.value_at_fetch()
         for liquidity in self.get_liquidities(filter):
-            value += liquidity.value()
+            value += liquidity.value_at_fetch()
         return value
     
     def value_1h(self):
