@@ -13,6 +13,7 @@
       
       </div
       <!-- Tokens -->
+    {% if  token_values %}
       <div class="w3-container">
       <h4>Tokens</h4>
        <table class="w3-table"> 
@@ -34,8 +35,9 @@
         {% endfor %}
         </table>
       </div>
-
+      {% endif %} 
       <!-- Liquidity -->
+      {% if  wallet.get_liquidities %}
       <div class="w3-container">
       <h4>Liquidities</h4>
        <table class="w3-table"> 
@@ -57,7 +59,7 @@
         {% endfor %}
         </table>
       </div>
-
+      {% endif %} 
 
     <footer class="w3-container w3-blue">
     <div class="w3-row">
