@@ -1,6 +1,7 @@
 <!-- templates/home.html -->
 {% extends 'base.html' %}
 {% load static %}
+{% load wallet_formatting %}
 {% block title %}Wallet {{wallet.address}}{% endblock %}
 
 {% block content %}
@@ -24,14 +25,12 @@
           <th>Value</th>
         </tr>
         {% for token, value in token_values.items %}
-          {% if not token.token.liquidity and not token.balance_calculated == 0.0 %}
             <tr>
             <td><a href="{% url 'wallet_token' wallet.address token.token.id %}">{{token.token.name}} ({{token.token.symbol}})</a></td>
-            <td><span data-tooltip="up" aria-label="{{token.fetched}}">{{token.balance_human}}</span></td>
-            <td><span data-tooltip="up" aria-label="{{value.fetched}} \\ {{value.exchange.name}}">{{value.price_human}}</span></td>
-            <td><span data-tooltip="up" aria-label="{{token.fetched}} - {{value.exchange.name}}">{{token.value_human}}</span></td>
-           </tr>      
-          {% endif %}  
+            <td><span data-tooltip="up" aria-label="{{token.fetched}}">{% format_balance token.balance_calculated%}</span></td>
+            <td><span data-tooltip="up" aria-label="{{value.fetched}} \\ {{value.exchange.name}}">{% format_money value.price %}</span></td>
+            <td><span data-tooltip="up" aria-label="{{token.fetched}} - {{value.exchange.name}}">{% format_money token.value %}</span></td>
+           </tr>       
         {% endfor %}
         </table>
       </div>
@@ -51,8 +50,8 @@
           {% if not liquidity.balance == 0.0 %}
             <tr>
             <td><a href="{% url 'wallet_liquidity' wallet.address liquidity.liquidity.token.id %}">{{liquidity.liquidity.pair}}</a></td>
-            <td><span data-tooltip="up" aria-label="{{liquidity.fetched}}">{{liquidity.balance_human}}</span></td>
-            <td><span data-tooltip="up" aria-label="{{liquidity.fetched}}">{{liquidity.value_human}}</span></td>
+            <td><span data-tooltip="up" aria-label="{{liquidity.fetched}}">{% format_balance liquidity.balance%}</span></td>
+            <td><span data-tooltip="up" aria-label="{{liquidity.fetched}}">{% format_money liquidity.value%}</span></td>
             <td>{{liquidity.liquidity.exchange.name}}</td>
            </tr>      
           {% endif %}  
@@ -64,10 +63,10 @@
     <footer class="w3-container w3-blue">
     <div class="w3-row">
     <div class="w3-half">
-    <h5><span data-tooltip="up" aria-label="{{wallet.get_balance.fetched}}">xDai: {{wallet.get_balance.xdai_human}}</span></h5>
+    <h5><span data-tooltip="up" aria-label="{{wallet.get_balance.fetched}}">xDai: {% format_money wallet.get_balance.xdai%}</span></h5>
     </div>
     <div class="w3-half w3-right-align">
-    <h5>Total: {{wallet.value_human}}</h5>
+    <h5>Total: {% format_money wallet.value %}</h5>
     </div>
     </div>
     </footer>

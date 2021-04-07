@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.http.response import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
-from .models import LiquidityToken, Token, Wallet, WatchWallet, format_money, get_best_priced
+from .models import LiquidityToken, Token, Wallet, WatchWallet, get_best_priced
 from django.utils.safestring import mark_safe
 # Create your views here.
 
@@ -31,35 +31,45 @@ class IndexView(generic.ListView):
         context = super().get_context_data(**kwargs)
         # Add in a QuerySet of all the books
         total = 0.0
+        augmented_wallets = []
         for wallet in context['wallets']:
-            total += wallet.wallet.value()
-        context['total'] = format_money(total)
+            val = wallet.wallet.value()
+            total += val
+            augmented_wallets.append({"name": wallet.name, "wallet": wallet.wallet, "val": val,
+                                     "val_1h": wallet.wallet.value_1h(), "val_24h": wallet.wallet.value_24h()})
+        context['items'] = augmented_wallets
+        context['total'] = total
         return context
 
 
 @login_required
 def wallet(request, wallet_address):
     wallet = get_object_or_404(Wallet, address=wallet_address.lower())
-    tokens = wallet.get_tokens()
+    tokens = wallet.get_tokens().select_related('token')
     token_values = {}
     for token in tokens:
-        last=token.get_last_value()
+        if token.token.liquidity or token.balance_calculated() == 0:
+            continue
+        last = token.get_last_value()
         if last is None:
             token_values[token] = None
             continue
-        similar=last.get_similar()
+        similar = last.get_similar()
         value = get_best_priced(similar)
         if value is None:
-            token_values[token]=last
+            token_values[token] = last
         else:
-            token_values[token]=value
+            token_values[token] = value
         
-    return render(request, 'walletview/wallet.html', {'wallet': wallet, 'token_values':token_values})
+
+    return render(request, 'walletview/wallet.html', {'wallet': wallet, 'token_values': token_values})
+
 
 def unzip(l):
     if len(l) == 0:
-        return [[],[]]
+        return [[], []]
     return zip(*l)
+
 
 @login_required
 def wallet_token(request, wallet_address, token_id):
@@ -86,6 +96,7 @@ def wallet_token(request, wallet_address, token_id):
 
     return render(request, 'walletview/wallettoken.html', {'wallet': wallet, 'token': token, 'wallet_token': wallet_token, 'history_balance': history_balance, 'history_value': history_value, 'history_price': history_price})
 
+
 @login_required
 def wallet_liquidity(request, wallet_address, liquidity_id):
     wallet = get_object_or_404(Wallet, address=wallet_address.lower())
@@ -94,7 +105,8 @@ def wallet_liquidity(request, wallet_address, liquidity_id):
         liquidity=liquidity).order_by('-fetched').first()
 
     # Balance
-    (balance_ts, balance_data) = unzip([(balance.fetched.timestamp(), balance.balance) for balance in wallet.walletliquidity_set.filter(liquidity=liquidity).order_by('fetched').iterator()])
+    (balance_ts, balance_data) = unzip([(balance.fetched.timestamp(), balance.balance)
+                                        for balance in wallet.walletliquidity_set.filter(liquidity=liquidity).order_by('fetched').iterator()])
     history_balance = mark_safe(json.dumps(
         [list(balance_ts), list(balance_data)]))
 
@@ -110,6 +122,7 @@ def wallet_liquidity(request, wallet_address, liquidity_id):
 
     return render(request, 'walletview/walletliquidity.html', {'wallet': wallet, 'liquidity': liquidity, 'wallet_liquidity': wallet_liquidity, 'history_balance': history_balance, 'history_value': history_value, 'history_price': history_price})
 
+
 @login_required
 def add_wallet(request):
     if request.method == "POST":
@@ -123,5 +136,3 @@ def add_wallet(request):
             if created_wallet:
                 wallet.update()
     return redirect("wallets")
-
-

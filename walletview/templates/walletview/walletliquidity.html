@@ -1,6 +1,7 @@
 <!-- templates/home.html -->
 {% extends 'base.html' %}
 {% load static %}
+{% load wallet_formatting %}
 {% block title %}Wallet {{wallet.address}} - Token {{token.name}}{% endblock %}
 
 {% block content %}
@@ -25,13 +26,13 @@
     <footer class="w3-container w3-blue">
     <div class="w3-row">
     <div class="w3-third">
-    <h5><span>Balance: {{wallet_liquidity.balance_human}}</span></h5>
+    <h5><span>Balance: {% format_balance wallet_liquidity.balance%}</span></h5>
     </div>
     <div class="w3-third">
-    <h5><span>Price: {{wallet_liquidity.get_last_value.price_human}}</span></h5>
+    <h5><span>Price: {% format_money wallet_liquidity.get_last_value.price %}</span></h5>
     </div>
     <div class="w3-third w3-right-align">
-    <h5>Value: {{wallet_liquidity.value_human}}</h5>
+    <h5>Value: {% format_money wallet_liquidity.value %}</h5>
     </div>
     </div>
     </footer>

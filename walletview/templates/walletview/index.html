@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load perc_diff %}
+{% load perc_diff %} 
+{% load wallet_formatting %}
 {% block title %}Wallets{% endblock %}
 
 {% block content %}
@@ -8,10 +9,10 @@
 <link rel="stylesheet" type="text/css" href="{% static 'walletview/css/perc_diff.css' %}">
   {% if wallets %}
     <div class="w3-panel w3-blue w3-right-align">
-    <h5>Total: {{total}}</h5>
+    <h5>Total:  {% format_money total%}</h5>
     </div> 
     <ul class="w3-ul">
-    {% for wallet in wallets %}
+    {% for wallet in items %}
     <a href="{% url 'wallet' wallet.wallet.address %}">
       <li class="w3-card-4 w3-margin-bottom"> 
         <div class="w3-row">
@@ -19,10 +20,10 @@
           {{ wallet.name }}
           </div>
           <div class="w3-col s3 w3-right-align">
-            {{ wallet.wallet.value_human }} 
+            {% format_money wallet.val%}
             <br>
-            {% labelled_perc_diff wallet.wallet.value_1h wallet.wallet.value "1H" %} 
-            {% labelled_perc_diff wallet.wallet.value_24h wallet.wallet.value "24H"%}
+            {% labelled_perc_diff wallet.val_1h wallet.val "1H" %} 
+            {% labelled_perc_diff wallet.val_24h wallet.val "24H"%}
           </div>
         </div>
         <div class="">
