@@ -1,0 +1,11 @@
+.negative_diff{
+  color: red
+}
+
+.positive_diff{
+  color: green
+}
+
+.perc_diff_cont{
+  font-size: small;
+}

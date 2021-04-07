@@ -2,6 +2,7 @@ from typing import Dict
 from django.db import models
 from django.conf import settings
 from django.db.models import Max
+from django.utils import timezone
 from django.utils.timezone import make_aware
 import requests
 from .helper import blockscout, uniswap
@@ -25,15 +26,26 @@ def format_address(address):
 
 def query_before_ts_query(q, timestamp):
     if timestamp is not None:
-        q.add(Q(fetched__lte=timestamp+timedelta(minutes=5)),Q.AND) 
+        q.add(Q(fetched__lte=timestamp+timedelta(minutes=5)),Q.AND)
+    return q
+
+def query_before_1h_query(q):
+    q.add(Q(fetched__lte=timezone.now()+timedelta(hours=-1)),Q.AND)
+    return q
+
+def query_before_24h_query(q):
+    q.add(Q(fetched__lte=timezone.now()+timedelta(hours=-24)),Q.AND)
+    return q
 
 def query_within_5_min(q,timestamp):
     q.add(Q(fetched__lte=timestamp+timedelta(minutes=5)),Q.AND)
     q.add(Q(fetched__gte=timestamp+timedelta(minutes=-5)),Q.AND)
+    return q
 
 def query_from_exchange(q,exchange):
     if exchange is not None:
          q.add(Q(exchange=exchange),Q.AND) 
+    return q
 
 def get_best_priced(token_values):
     max_valued = (None,-1)
@@ -74,6 +86,10 @@ class Wallet(models.Model):
 
     def __str__(self):
         return "{} ({})".format(self.address,self.value())
+
+    @property
+    def fetched(self):
+        return self.last_update
     
     def get_address(self):
         return format_address(self.address)
@@ -99,6 +115,11 @@ class Wallet(models.Model):
         for liquidity in self.get_liquidities(filter):
             value += liquidity.value()
         return value
+    
+    def value_1h(self):
+        return self.value(query_before_1h_query(Q()))
+    def value_24h(self):
+        return self.value(query_before_24h_query(Q()))
 
     def value_human(self):
         return format_money(self.value())
@@ -275,6 +296,11 @@ class WalletLiquidity(models.Model):
         if s :
             return s.value(self.balance)
         return 0.0
+
+    def value_1h(self):
+        return self.value(query_before_1h_query(Q()))
+    def value_24h(self):
+        return self.value(query_before_24h_query(Q()))
     
     def balance_human(self):
         return format_balance(self.balance)
@@ -309,6 +335,11 @@ class WalletToken(models.Model):
         if s :
             return s.value(self.balance_calculated())
         return 0.0
+
+    def value_1h(self):
+        return self.value(query_before_1h_query(Q()))
+    def value_24h(self):
+        return self.value(query_before_24h_query(Q()))
     
     def value_human(self,filter=Q()):
         return format_money(self.value(filter))
